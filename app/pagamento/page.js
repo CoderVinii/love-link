@@ -6,7 +6,6 @@ import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-// 🔹 componente que usa o hook
 function PagamentoContent() {
   const params = useSearchParams()
   const id = params.get('id')
@@ -25,8 +24,10 @@ function PagamentoContent() {
         <Link href="/" style={{ textDecoration: 'none' }}>
           <span style={{ fontSize: '22px' }}>💌</span>
           <span style={{
-            fontWeight: '800', fontSize: '22px',
-            color: '#e91e8c', marginLeft: '8px'
+            fontWeight: '800',
+            fontSize: '22px',
+            color: '#e91e8c',
+            marginLeft: '8px'
           }}>
             Lovelink
           </span>
@@ -43,13 +44,19 @@ function PagamentoContent() {
           <div style={{ fontSize: '56px', marginBottom: '16px' }}>💳</div>
 
           <h2 style={{
-            fontSize: '24px', fontWeight: '800',
-            color: '#1a1a2e', marginBottom: '8px'
+            fontSize: '24px',
+            fontWeight: '800',
+            color: '#1a1a2e',
+            marginBottom: '8px'
           }}>
             Quase lá! 🎉
           </h2>
 
-          <p style={{ color: '#9ca3af', fontSize: '15px', marginBottom: '32px' }}>
+          <p style={{
+            color: '#9ca3af',
+            fontSize: '15px',
+            marginBottom: '32px'
+          }}>
             Seu presente foi criado com sucesso. Agora é só pagar para liberar o link!
           </p>
 
@@ -61,8 +68,10 @@ function PagamentoContent() {
           }}>
             <p style={{ color: '#9ca3af', fontSize: '14px' }}>Total a pagar</p>
             <p style={{
-              fontSize: '40px', fontWeight: '800',
-              color: '#e91e8c', margin: '4px 0'
+              fontSize: '40px',
+              fontWeight: '800',
+              color: '#e91e8c',
+              margin: '4px 0'
             }}>
               R$ 19,90
             </p>
@@ -100,7 +109,6 @@ function PagamentoContent() {
   )
 }
 
-// 🔹 wrapper com Suspense
 export default function Pagamento() {
   return (
     <Suspense fallback={<div>Carregando...</div>}>
