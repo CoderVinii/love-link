@@ -6,9 +6,8 @@ import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-export default function Pagamento() {
-  // useSearchParams lê os parâmetros da URL
-  // ex: /pagamento?id=4 → params.get('id') retorna "4"
+// 🔹 componente que usa o hook
+function PagamentoContent() {
   const params = useSearchParams()
   const id = params.get('id')
 
@@ -23,7 +22,6 @@ export default function Pagamento() {
     }}>
       <div style={{ maxWidth: '480px', width: '100%', textAlign: 'center' }}>
 
-        {/* Logo */}
         <Link href="/" style={{ textDecoration: 'none' }}>
           <span style={{ fontSize: '22px' }}>💌</span>
           <span style={{
@@ -34,7 +32,6 @@ export default function Pagamento() {
           </span>
         </Link>
 
-        {/* Card principal */}
         <div style={{
           backgroundColor: 'white',
           borderRadius: '24px',
@@ -56,7 +53,6 @@ export default function Pagamento() {
             Seu presente foi criado com sucesso. Agora é só pagar para liberar o link!
           </p>
 
-          {/* Resumo do valor */}
           <div style={{
             backgroundColor: '#fff5f7',
             borderRadius: '16px',
@@ -70,10 +66,8 @@ export default function Pagamento() {
             }}>
               R$ 19,90
             </p>
-            <p style={{ color: '#9ca3af', fontSize: '13px' }}>pagamento único • acesso vitalício</p>
           </div>
 
-          {/* Botão do Mercado Pago — por enquanto simulado */}
           <button
             onClick={() => alert('Em breve: integração com Mercado Pago! ID do presente: ' + id)}
             style={{
@@ -81,7 +75,7 @@ export default function Pagamento() {
               padding: '18px',
               borderRadius: '999px',
               border: 'none',
-              backgroundColor: '#009ee3', // cor oficial do Mercado Pago
+              backgroundColor: '#009ee3',
               color: 'white',
               fontWeight: '700',
               fontSize: '16px',
@@ -95,15 +89,22 @@ export default function Pagamento() {
           <p style={{ color: '#9ca3af', fontSize: '13px' }}>
             🔒 Pagamento 100% seguro via Mercado Pago
           </p>
-
         </div>
 
-        {/* ID do presente para debug */}
         <p style={{ color: '#d1d5db', fontSize: '12px', marginTop: '16px' }}>
           Presente #{id}
         </p>
 
       </div>
     </div>
+  )
+}
+
+// 🔹 wrapper com Suspense
+export default function Pagamento() {
+  return (
+    <Suspense fallback={<div>Carregando...</div>}>
+      <PagamentoContent />
+    </Suspense>
   )
 }
