@@ -2,13 +2,48 @@
 
 export const dynamic = 'force-dynamic'
 
-import { Suspense } from 'react'
+import { Suspense, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 function PagamentoContent() {
   const params = useSearchParams()
   const id = params.get('id')
+  const erro = params.get('erro')
+
+  const [carregando, setCarregando] = useState(false)
+
+  async function handlePagamento() {
+    // 🔥 Evita múltiplos cliques
+    if (carregando) return
+
+    setCarregando(true)
+
+    try {
+      const res = await fetch('/api/criar-pagamento', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          presenteId: id,
+          timestamp: Date.now() // 🔥 força nova preferência
+        })
+      })
+
+      const data = await res.json()
+
+      if (data.url) {
+        // 🔥 Redireciona para o Mercado Pago
+        window.location.href = data.url
+      } else {
+        alert('Erro ao criar pagamento. Tente novamente.')
+      }
+
+    } catch (e) {
+      alert('Erro de conexão. Tente novamente.')
+    }
+
+    setCarregando(false)
+  }
 
   return (
     <div style={{
@@ -21,6 +56,7 @@ function PagamentoContent() {
     }}>
       <div style={{ maxWidth: '480px', width: '100%', textAlign: 'center' }}>
 
+        {/* Logo */}
         <Link href="/" style={{ textDecoration: 'none' }}>
           <span style={{ fontSize: '22px' }}>💌</span>
           <span style={{
@@ -41,30 +77,72 @@ function PagamentoContent() {
           boxShadow: '0 4px 24px rgba(233,30,140,0.08)',
           marginTop: '40px'
         }}>
-          <div style={{ fontSize: '56px', marginBottom: '16px' }}>💳</div>
 
-          <h2 style={{
-            fontSize: '24px',
-            fontWeight: '800',
-            color: '#1a1a2e',
-            marginBottom: '8px'
-          }}>
-            Quase lá! 🎉
-          </h2>
+          {/* Estado de erro */}
+          {erro ? (
+            <>
+              <div style={{ fontSize: '56px', marginBottom: '16px' }}>😔</div>
+              <h2 style={{
+                fontSize: '24px',
+                fontWeight: '800',
+                color: '#1a1a2e',
+                marginBottom: '8px'
+              }}>
+                Pagamento não concluído
+              </h2>
+              <p style={{
+                color: '#9ca3af',
+                fontSize: '15px',
+                marginBottom: '32px'
+              }}>
+                Não se preocupe! Seu presente foi salvo. Tente pagar novamente.
+              </p>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: '56px', marginBottom: '16px' }}>💳</div>
+              <h2 style={{
+                fontSize: '24px',
+                fontWeight: '800',
+                color: '#1a1a2e',
+                marginBottom: '8px'
+              }}>
+                Quase lá! 🎉
+              </h2>
+              <p style={{
+                color: '#9ca3af',
+                fontSize: '15px',
+                marginBottom: '32px'
+              }}>
+                Seu presente foi criado! Pague agora para liberar o link.
+              </p>
+            </>
+          )}
 
-          <p style={{
-            color: '#9ca3af',
-            fontSize: '15px',
-            marginBottom: '32px'
-          }}>
-            Seu presente foi criado com sucesso. Agora é só pagar para liberar o link!
-          </p>
+          {/* Preview */}
+          <Link
+            href={`/preview/${id}`}
+            style={{
+              display: 'block',
+              padding: '14px',
+              borderRadius: '999px',
+              border: '2px solid #fce7f3',
+              color: '#e91e8c',
+              fontWeight: '600',
+              fontSize: '15px',
+              textDecoration: 'none',
+              marginBottom: '12px'
+            }}
+          >
+            👁️ Ver preview do presente
+          </Link>
 
+          {/* Preço */}
           <div style={{
             backgroundColor: '#fff5f7',
             borderRadius: '16px',
-            padding: '20px',
-            marginBottom: '32px'
+            padding: '16px',
+            marginBottom: '20px'
           }}>
             <p style={{ color: '#9ca3af', fontSize: '14px' }}>Total a pagar</p>
             <p style={{
@@ -75,24 +153,29 @@ function PagamentoContent() {
             }}>
               R$ 19,90
             </p>
+            <p style={{ color: '#9ca3af', fontSize: '13px' }}>
+              pagamento único • acesso vitalício
+            </p>
           </div>
 
+          {/* Botão */}
           <button
-            onClick={() => alert('Em breve: integração com Mercado Pago! ID do presente: ' + id)}
+            onClick={handlePagamento}
+            disabled={carregando}
             style={{
               width: '100%',
               padding: '18px',
               borderRadius: '999px',
               border: 'none',
-              backgroundColor: '#009ee3',
+              backgroundColor: carregando ? '#7dd3fc' : '#009ee3',
               color: 'white',
               fontWeight: '700',
               fontSize: '16px',
-              cursor: 'pointer',
+              cursor: carregando ? 'not-allowed' : 'pointer',
               marginBottom: '16px'
             }}
           >
-            💳 Pagar com Mercado Pago
+            {carregando ? 'Aguarde...' : '💳 Pagar com Mercado Pago'}
           </button>
 
           <p style={{ color: '#9ca3af', fontSize: '13px' }}>
@@ -100,7 +183,11 @@ function PagamentoContent() {
           </p>
         </div>
 
-        <p style={{ color: '#d1d5db', fontSize: '12px', marginTop: '16px' }}>
+        <p style={{
+          color: '#d1d5db',
+          fontSize: '12px',
+          marginTop: '16px'
+        }}>
           Presente #{id}
         </p>
 
