@@ -29,10 +29,10 @@ export async function POST(request) {
     const pagamento = await payment.get({ id: body.data.id })
 
     if (pagamento.status === 'approved') {
-      const presenteId = pagamento.external_reference
+     const presenteId = parseInt(pagamento.external_reference)
 
       // Atualiza o campo "pago" para true no Supabase
-      await supabaseAdmin
+     await supabaseAdmin
         .from('presentes')
         .update({ pago: true })
         .eq('id', presenteId)
