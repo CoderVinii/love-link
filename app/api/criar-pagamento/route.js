@@ -76,7 +76,10 @@ export async function POST(request) {
         notification_url: `${baseUrl}/api/webhook-pagamento`,
 
         // 🔥 AGORA USAMOS O ID DO PAGAMENTO
-        external_reference: String(pagamento.id),
+        external_reference: JSON.stringify({
+            pagamentoId: pagamento.id,
+            presenteId: presenteId
+        }),
       },
     })
 
