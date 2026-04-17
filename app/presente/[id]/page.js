@@ -3,34 +3,35 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
 export default async function Presente({ params, searchParams }) {
-  const rawId = params.id
-  const id = Number(rawId.split('?')[0])
+  // ✅ ID correto (Next já garante que vem limpo)
+  const id = Number(params.id)
 
-  if (isNaN(id)) {
-    throw new Error('ID inválido')
-  }
-
+  // 🔒 Cliente com service role (server only)
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   )
 
+  // 📦 Busca o presente
   const { data: presente } = await supabase
     .from('presentes')
     .select('*')
     .eq('id', id)
     .maybeSingle()
 
+  // ❌ Se não existir → 404
   if (!presente) notFound()
 
-  // 🔥 CORREÇÃO AQUI
+  // 💳 Verifica status vindo do Mercado Pago (fallback imediato)
   const statusFromUrl =
     searchParams?.status || searchParams?.collection_status
 
+  // 🔒 Bloqueia acesso se não estiver pago
   if (!presente.pago && statusFromUrl !== 'approved') {
     redirect(`/pagamento?id=${id}`)
   }
 
+  // 📸 Fotos
   const fotos = presente.fotos_urls
     ? presente.fotos_urls.split(',').filter(url => url.trim() !== '')
     : []
@@ -50,9 +51,11 @@ export default async function Presente({ params, searchParams }) {
           <h2 style={{ fontSize: '48px', fontWeight: '800', color: '#f472b6' }}>
             {presente.nome_destinatario} 💕
           </h2>
+
           {presente.data_relacionamento && (
             <p style={{ color: '#6b7280', marginTop: '12px', fontSize: '14px' }}>
-              Juntos desde {new Date(presente.data_relacionamento).toLocaleDateString('pt-BR')}
+              Juntos desde{' '}
+              {new Date(presente.data_relacionamento).toLocaleDateString('pt-BR')}
             </p>
           )}
         </div>
@@ -76,13 +79,15 @@ export default async function Presente({ params, searchParams }) {
           </div>
         )}
 
-        <div style={{
-          backgroundColor: '#111827',
-          borderRadius: '20px',
-          padding: '32px',
-          marginBottom: '32px',
-          border: '1px solid #1f2937'
-        }}>
+        <div
+          style={{
+            backgroundColor: '#111827',
+            borderRadius: '20px',
+            padding: '32px',
+            marginBottom: '32px',
+            border: '1px solid #1f2937'
+          }}
+        >
           <p style={{ fontSize: '18px', lineHeight: 1.8, color: '#e5e7eb', fontStyle: 'italic' }}>
             &ldquo;{presente.mensagem}&rdquo;
           </p>
@@ -96,11 +101,14 @@ export default async function Presente({ params, searchParams }) {
             <p style={{ color: '#f472b6', fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>
               📸 Nossas memórias
             </p>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: fotos.length === 1 ? '1fr' : 'repeat(2, 1fr)',
-              gap: '8px'
-            }}>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: fotos.length === 1 ? '1fr' : 'repeat(2, 1fr)',
+                gap: '8px'
+              }}
+            >
               {fotos.map((url, i) => (
                 <img
                   key={i}
