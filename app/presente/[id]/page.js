@@ -3,7 +3,13 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
 export default async function Presente({ params, searchParams }) {
-  const id = Number(params.id)
+  const id = parseInt(params.id, 10)
+
+if (isNaN(id)) {
+  throw new Error('ID inválido')
+}
+
+console.log('ID:', id)
 
   const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
