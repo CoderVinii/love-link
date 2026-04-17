@@ -27,9 +27,10 @@ export default async function Presente({ params, searchParams }) {
     searchParams?.status || searchParams?.collection_status
 
   // 🔒 Bloqueia acesso se não estiver pago
-  if (!presente.pago && statusFromUrl !== 'approved') {
+  if (!(presente?.pago === true) && statusFromUrl !== 'approved') {
     redirect(`/pagamento?id=${id}`)
   }
+  console.log('PRESENTE:', presente)
 
   // 📸 Fotos
   const fotos = presente.fotos_urls
