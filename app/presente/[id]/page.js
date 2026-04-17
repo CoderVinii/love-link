@@ -3,26 +3,25 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
 export default async function Presente({ params, searchParams }) {
-  const id = parseInt(params.id, 10)
+  const rawId = params.id
+  const id = Number(rawId.split('?')[0])
 
-if (isNaN(id)) {
-  throw new Error('ID inválido')
-}
-
-console.log('ID:', id)
+  if (isNaN(id)) {
+    throw new Error('ID inválido')
+  }
 
   const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  )
 
   const { data: presente } = await supabase
-  .from('presentes')
-  .select('*')
-  .eq('id', id)
-  .maybeSingle()
+    .from('presentes')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
 
-if (!presente) notFound()
+  if (!presente) notFound()
 
   // 🔥 CORREÇÃO AQUI
   const statusFromUrl =
