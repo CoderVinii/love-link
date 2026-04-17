@@ -3,20 +3,20 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
 export default async function Presente({ params, searchParams }) {
-  const { id } = params
+  const id = Number(params.id)
 
   const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-  const { data: presente, error } = await supabase
-    .from('presentes')
-    .select('*')
-    .eq('id', id)
-    .single()
+  const { data: presente } = await supabase
+  .from('presentes')
+  .select('*')
+  .eq('id', id)
+  .maybeSingle()
 
-  if (!presente || error) notFound()
+if (!presente) notFound()
 
   // 🔥 CORREÇÃO AQUI
   const statusFromUrl =
