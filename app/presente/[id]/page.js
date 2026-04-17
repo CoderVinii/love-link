@@ -2,11 +2,9 @@ import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
-export default async function Presente({ params }) {
-  const { id } = await params
+export default async function Presente({ params, searchParams }) {
+  const { id } = params
 
-  // Cria o cliente dentro da função para garantir que as variáveis
-  // de ambiente já estejam carregadas quando a função executar
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -20,7 +18,13 @@ export default async function Presente({ params }) {
 
   if (!presente || error) notFound()
 
-  if (!presente.pago) redirect(`/pagamento?id=${id}`)
+  // 🔥 CORREÇÃO AQUI
+  const statusFromUrl =
+    searchParams?.status || searchParams?.collection_status
+
+  if (!presente.pago && statusFromUrl !== 'approved') {
+    redirect(`/pagamento?id=${id}`)
+  }
 
   const fotos = presente.fotos_urls
     ? presente.fotos_urls.split(',').filter(url => url.trim() !== '')

@@ -53,7 +53,10 @@ export async function POST(request) {
     const preference = new Preference(client)
 
     const resultado = await preference.create({
-      body: {
+  body: {
+    payer: {
+      email: 'test_user_123@testuser.com',
+    },
         items: [
           {
             title: 'Lovelink — Presente Personalizado',
