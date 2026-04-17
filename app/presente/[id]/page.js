@@ -3,36 +3,53 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
 export default async function Presente({ params, searchParams }) {
-  // ✅ ID correto (Next já garante que vem limpo)
-  const id = Number(params.id)
+  // ✅ ID seguro
+  const id = parseInt(params.id, 10)
 
-  // 🔒 Cliente com service role (server only)
+  if (!id) {
+    notFound()
+  }
+
+  // 🔒 Cliente Supabase (server)
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   )
 
-  // 📦 Busca o presente
-  const { data: presente } = await supabase
+  // 📦 Buscar presente
+  const { data: presente, error } = await supabase
     .from('presentes')
     .select('*')
     .eq('id', id)
     .maybeSingle()
 
-  // ❌ Se não existir → 404
-  if (!presente) notFound()
+  if (error) {
+    console.error('❌ Erro Supabase:', error)
+    notFound()
+  }
 
-  // 💳 Verifica status vindo do Mercado Pago (fallback imediato)
+  if (!presente) {
+    console.error('❌ Presente não encontrado:', id)
+    notFound()
+  }
+
+  // 💳 Status vindo do Mercado Pago (fallback)
   const statusFromUrl =
     searchParams?.status || searchParams?.collection_status
 
-  // 🔒 Bloqueia acesso se não estiver pago
-  if (!(presente?.pago === true) && statusFromUrl !== 'approved') {
+  const isApproved = statusFromUrl === 'approved'
+
+  console.log('🔎 DEBUG:')
+  console.log('ID:', id)
+  console.log('Pago DB:', presente.pago)
+  console.log('Status URL:', statusFromUrl)
+
+  // 🔒 Bloqueio de acesso
+  if (!presente.pago && !isApproved) {
     redirect(`/pagamento?id=${id}`)
   }
-  console.log('PRESENTE:', presente)
 
-  // 📸 Fotos
+  // 📸 Fotos tratadas
   const fotos = presente.fotos_urls
     ? presente.fotos_urls.split(',').filter(url => url.trim() !== '')
     : []
@@ -41,14 +58,18 @@ export default async function Presente({ params, searchParams }) {
     <div style={{ minHeight: '100vh', backgroundColor: '#0a0a0a', color: 'white' }}>
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '40px 24px' }}>
 
+        {/* 🎁 Header */}
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
           <p style={{ color: '#f472b6', fontSize: '14px', marginBottom: '8px' }}>
             Uma mensagem especial de
           </p>
-          <h1 style={{ fontSize: '36px', fontWeight: '800', marginBottom: '4px' }}>
+
+          <h1 style={{ fontSize: '36px', fontWeight: '800' }}>
             {presente.nome_remetente}
           </h1>
+
           <p style={{ color: '#9ca3af' }}>para</p>
+
           <h2 style={{ fontSize: '48px', fontWeight: '800', color: '#f472b6' }}>
             {presente.nome_destinatario} 💕
           </h2>
@@ -61,11 +82,13 @@ export default async function Presente({ params, searchParams }) {
           )}
         </div>
 
+        {/* 🎵 Música */}
         {presente.musica_url && (
           <div style={{ marginBottom: '32px' }}>
-            <p style={{ color: '#f472b6', fontSize: '14px', marginBottom: '12px', textAlign: 'center' }}>
+            <p style={{ color: '#f472b6', textAlign: 'center', marginBottom: '12px' }}>
               🎵 Nossa música
             </p>
+
             <iframe
               src={presente.musica_url
                 .replace('open.spotify.com/track/', 'open.spotify.com/embed/track/')
@@ -74,42 +97,41 @@ export default async function Presente({ params, searchParams }) {
               width="100%"
               height="80"
               frameBorder="0"
-              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+              allow="autoplay; clipboard-write; encrypted-media"
               style={{ borderRadius: '12px' }}
             />
           </div>
         )}
 
-        <div
-          style={{
-            backgroundColor: '#111827',
-            borderRadius: '20px',
-            padding: '32px',
-            marginBottom: '32px',
-            border: '1px solid #1f2937'
-          }}
-        >
-          <p style={{ fontSize: '18px', lineHeight: 1.8, color: '#e5e7eb', fontStyle: 'italic' }}>
-            &ldquo;{presente.mensagem}&rdquo;
+        {/* 💌 Mensagem */}
+        <div style={{
+          backgroundColor: '#111827',
+          borderRadius: '20px',
+          padding: '32px',
+          marginBottom: '32px',
+          border: '1px solid #1f2937'
+        }}>
+          <p style={{ fontSize: '18px', lineHeight: 1.8, fontStyle: 'italic' }}>
+            “{presente.mensagem}”
           </p>
+
           <p style={{ color: '#f472b6', marginTop: '16px', fontWeight: '600' }}>
             — {presente.nome_remetente} ❤️
           </p>
         </div>
 
+        {/* 📸 Fotos */}
         {fotos.length > 0 && (
           <div style={{ marginBottom: '40px' }}>
-            <p style={{ color: '#f472b6', fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>
+            <p style={{ color: '#f472b6', textAlign: 'center', marginBottom: '16px' }}>
               📸 Nossas memórias
             </p>
 
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: fotos.length === 1 ? '1fr' : 'repeat(2, 1fr)',
-                gap: '8px'
-              }}
-            >
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: fotos.length === 1 ? '1fr' : 'repeat(2, 1fr)',
+              gap: '8px'
+            }}>
               {fotos.map((url, i) => (
                 <img
                   key={i}
@@ -127,8 +149,9 @@ export default async function Presente({ params, searchParams }) {
           </div>
         )}
 
-        <div style={{ textAlign: 'center', paddingTop: '20px', borderTop: '1px solid #1f2937' }}>
-          <p style={{ color: '#4b5563', fontSize: '12px' }}>
+        {/* 🔗 Footer */}
+        <div style={{ textAlign: 'center', borderTop: '1px solid #1f2937', paddingTop: '20px' }}>
+          <p style={{ fontSize: '12px', color: '#4b5563' }}>
             Feito com 💕 no{' '}
             <Link href="/" style={{ color: '#f472b6', textDecoration: 'none' }}>
               Lovelink
