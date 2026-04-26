@@ -86,7 +86,6 @@ export default function Editor() {
       if (erroUpdate) throw erroUpdate
 
       router.push(`/pagamento?id=${presente.id}`)
-
     } catch (erro) {
       console.error('Erro ao salvar:', erro)
       alert('Ocorreu um erro. Tente novamente.')
@@ -122,7 +121,6 @@ export default function Editor() {
       padding: '40px 24px'
     }}>
       <div style={{ maxWidth: '560px', margin: '0 auto' }}>
-
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
           <Link href="/" style={{ textDecoration: 'none' }}>
             <span style={{ fontSize: '22px' }}>💌</span>
@@ -135,7 +133,6 @@ export default function Editor() {
           </Link>
         </div>
 
-        {/* Indicador de etapas */}
         <div style={{
           display: 'flex', alignItems: 'center',
           justifyContent: 'center', gap: '8px',
@@ -170,8 +167,6 @@ export default function Editor() {
           border: '1px solid #fce7f3',
           boxShadow: '0 4px 24px rgba(233,30,140,0.08)'
         }}>
-
-          {/* ETAPA 1 */}
           {etapa === 1 && (
             <div>
               <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#1a1a2e', marginBottom: '8px' }}>
@@ -200,7 +195,6 @@ export default function Editor() {
             </div>
           )}
 
-          {/* ETAPA 2 */}
           {etapa === 2 && (
             <div>
               <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#1a1a2e', marginBottom: '8px' }}>
@@ -229,7 +223,6 @@ export default function Editor() {
             </div>
           )}
 
-          {/* ETAPA 3 */}
           {etapa === 3 && (
             <div>
               <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#1a1a2e', marginBottom: '8px' }}>
@@ -263,7 +256,7 @@ export default function Editor() {
                     gap: '8px', marginTop: '20px'
                   }}>
                     {fotos.map((foto, index) => (
-                      <div key={index} style={{
+                      <div key={`${foto.name}-${index}`} style={{
                         borderRadius: '12px', overflow: 'hidden',
                         aspectRatio: '1', backgroundColor: '#fce7f3'
                       }}>
@@ -283,7 +276,6 @@ export default function Editor() {
             </div>
           )}
 
-          {/* Botões de navegação */}
           <div style={{
             display: 'flex', gap: '12px', marginTop: '32px',
             justifyContent: etapa > 1 ? 'space-between' : 'flex-end'
@@ -312,7 +304,6 @@ export default function Editor() {
               {etapa < 3 ? 'Continuar →' : carregando ? 'Salvando... ⏳' : '💳 Ir para o pagamento'}
             </button>
           </div>
-
         </div>
 
         <p style={{
@@ -321,7 +312,6 @@ export default function Editor() {
         }}>
           🔒 Pagamento 100% seguro • Seus dados estão protegidos
         </p>
-
       </div>
     </div>
   )

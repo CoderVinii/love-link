@@ -1,108 +1,116 @@
-// app/api/criar-pagamento/route.js
-
 import { MercadoPagoConfig, Preference } from 'mercadopago'
 import { createClient } from '@supabase/supabase-js'
 
-// 🔐 Supabase client (server)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY // ⚠️ IMPORTANTE (não usar anon aqui)
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-// 💳 Mercado Pago client
+const mercadoPagoAccessToken = process.env.MP_ACCESS_TOKEN
+
 const client = new MercadoPagoConfig({
-  accessToken: process.env.MP_ACCESS_TOKEN,
+  accessToken: mercadoPagoAccessToken,
 })
+
+function getBaseUrl() {
+  return process.env.BASE_URL || 'http://localhost:3000'
+}
+
+function getCheckoutUrl(preference) {
+  if (mercadoPagoAccessToken?.startsWith('TEST-')) {
+    return preference.sandbox_init_point || preference.init_point
+  }
+
+  return preference.init_point
+}
 
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { presenteId } = body
+    const presenteId = Number(body.presenteId)
 
-    console.log('📥 Recebido presenteId:', presenteId)
-
-    // 🔒 Validação básica
-    if (!presenteId) {
-      return Response.json({ erro: 'presenteId obrigatório' }, { status: 400 })
+    if (!Number.isInteger(presenteId) || presenteId <= 0) {
+      return Response.json({ erro: 'presenteId inválido' }, { status: 400 })
     }
 
-    // 🌍 URL base
-    const baseUrl =
-      process.env.BASE_URL || 'http://localhost:3000'
+    const baseUrl = getBaseUrl()
 
-    // 🧱 1. Criar pagamento no banco (pending)
+    const { data: presente, error: erroPresente } = await supabase
+      .from('presentes')
+      .select('id, nome_remetente, nome_destinatario')
+      .eq('id', presenteId)
+      .maybeSingle()
+
+    if (erroPresente || !presente) {
+      console.error('Erro ao buscar presente:', erroPresente)
+      return Response.json({ erro: 'Presente não encontrado' }, { status: 404 })
+    }
+
     const { data: pagamento, error: erroInsert } = await supabase
       .from('pagamentos')
-      .insert([
-        {
-          presente_id: presenteId,
-          status: 'pending',
-        },
-      ])
+      .insert({
+        presente_id: presenteId,
+        status: 'pending',
+      })
       .select()
       .single()
 
     if (erroInsert) {
-      console.error('❌ Erro ao criar pagamento:', erroInsert)
+      console.error('Erro ao criar pagamento:', erroInsert)
       return Response.json({ erro: 'Erro ao criar pagamento' }, { status: 500 })
     }
 
-    console.log('✅ Pagamento criado no banco:', pagamento.id)
+    const externalReference = JSON.stringify({
+      pagamentoId: pagamento.id,
+      presenteId,
+    })
 
-    // 💳 2. Criar preferência no Mercado Pago
     const preference = new Preference(client)
-
     const resultado = await preference.create({
-  body: {
-    payer: {
-      email: 'test_user_123@testuser.com',
-    },
+      body: {
         items: [
           {
-            title: 'Lovelink — Presente Personalizado',
+            id: String(presenteId),
+            title: `Lovelink - Presente para ${presente.nome_destinatario || 'alguém especial'}`,
+            description: 'Carta digital personalizada com fotos e música',
             quantity: 1,
+            currency_id: 'BRL',
             unit_price: 19.9,
           },
         ],
-
         back_urls: {
           success: `${baseUrl}/presente/${presenteId}`,
           failure: `${baseUrl}/pagamento?id=${presenteId}&erro=1`,
           pending: `${baseUrl}/pagamento?id=${presenteId}&pendente=1`,
         },
-
         auto_return: 'approved',
-
         notification_url: `${baseUrl}/api/webhook-pagamento`,
-
-        // 🔥 AGORA USAMOS O ID DO PAGAMENTO
-        external_reference: JSON.stringify({
-            pagamentoId: pagamento.id,
-            presenteId: presenteId
-        }),
+        external_reference: externalReference,
+        metadata: {
+          pagamento_id: pagamento.id,
+          presente_id: presenteId,
+        },
       },
     })
 
-    console.log('💳 Preference criada:', resultado.id)
-
-    // 🧱 3. Atualizar pagamento com ID do Mercado Pago
     const { error: erroUpdate } = await supabase
       .from('pagamentos')
       .update({
         mercadopago_id: resultado.id,
+        status: 'pending',
       })
       .eq('id', pagamento.id)
 
     if (erroUpdate) {
-      console.error('⚠️ Erro ao atualizar pagamento:', erroUpdate)
+      console.error('Erro ao atualizar pagamento:', erroUpdate)
     }
 
-    // 🚀 Retorno final
     return Response.json({
-      url: resultado.init_point,
+      url: getCheckoutUrl(resultado),
+      preferenceId: resultado.id,
     })
   } catch (erro) {
-    console.error('🔥 ERRO GERAL:', erro)
+    console.error('Erro geral ao criar pagamento:', erro)
 
     return Response.json(
       { erro: 'Erro ao criar pagamento' },

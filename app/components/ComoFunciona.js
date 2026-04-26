@@ -1,27 +1,20 @@
 'use client'
-// 'use client' é necessário porque vamos usar useState (interatividade)
-// No Next.js, componentes interativos precisam dessa declaração no topo
 
 import { useState } from 'react'
-// useState permite guardar e atualizar valores na tela
-// Aqui vamos usá-lo para saber qual card está sendo exibido
 
 const passos = [
-  { numero: '01', emoji: '✨', titulo: 'Crie sua conta', descricao: 'Escolha o plano perfeito e preencha as informações do seu amor.' },
+  { numero: '01', emoji: '✨', titulo: 'Crie sua página', descricao: 'Escolha o plano perfeito e preencha as informações do seu amor.' },
   { numero: '02', emoji: '💖', titulo: 'Personalize tudo', descricao: 'Fotos, música, texto, data. Monte a página dos sonhos em minutos.' },
   { numero: '03', emoji: '💌', titulo: 'Envie o link', descricao: 'Receba o link exclusivo e envie para a pessoa especial se apaixonar.' },
 ]
 
 export default function ComoFunciona() {
-  // atual = índice do card visível (começa em 0, ou seja, o primeiro)
   const [atual, setAtual] = useState(0)
 
-  // Vai para o card anterior (não deixa passar do primeiro)
   function anterior() {
     setAtual((prev) => (prev > 0 ? prev - 1 : prev))
   }
 
-  // Vai para o próximo card (não deixa passar do último)
   function proximo() {
     setAtual((prev) => (prev < passos.length - 1 ? prev + 1 : prev))
   }
@@ -29,8 +22,6 @@ export default function ComoFunciona() {
   return (
     <section id="como-funciona" style={{ padding: '96px 24px', backgroundColor: '#fff5f7' }}>
       <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-
-        {/* Título da seção */}
         <div style={{ textAlign: 'center', marginBottom: '48px' }}>
           <div style={{
             display: 'inline-block', backgroundColor: '#fce7f3',
@@ -49,7 +40,6 @@ export default function ComoFunciona() {
           </h2>
         </div>
 
-        {/* Card atual — fundo branco e claro */}
         <div style={{
           backgroundColor: 'white',
           border: '1px solid #fce7f3',
@@ -83,7 +73,6 @@ export default function ComoFunciona() {
           </p>
         </div>
 
-        {/* Controles do carrossel */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -91,10 +80,9 @@ export default function ComoFunciona() {
           gap: '24px',
           marginTop: '32px'
         }}>
-
-          {/* Seta esquerda */}
           <button
             onClick={anterior}
+            aria-label="Passo anterior"
             style={{
               width: '44px', height: '44px',
               borderRadius: '50%',
@@ -109,12 +97,12 @@ export default function ComoFunciona() {
             ‹
           </button>
 
-          {/* Bolinhas indicadoras — mostram em qual card você está */}
           <div style={{ display: 'flex', gap: '8px' }}>
-            {passos.map((_, i) => (
+            {passos.map((passo, i) => (
               <button
-                key={i}
+                key={passo.numero}
                 onClick={() => setAtual(i)}
+                aria-label={`Ver passo ${passo.numero}`}
                 style={{
                   width: i === atual ? '24px' : '8px',
                   height: '8px',
@@ -123,15 +111,14 @@ export default function ComoFunciona() {
                   border: 'none',
                   cursor: 'pointer',
                   transition: 'all 0.3s'
-                  /* A bolinha ativa fica maior e rosa — igual ao DearYou */
                 }}
               />
             ))}
           </div>
 
-          {/* Seta direita */}
           <button
             onClick={proximo}
+            aria-label="Próximo passo"
             style={{
               width: '44px', height: '44px',
               borderRadius: '50%',
@@ -145,7 +132,6 @@ export default function ComoFunciona() {
           >
             ›
           </button>
-
         </div>
       </div>
     </section>

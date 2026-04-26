@@ -11,14 +11,13 @@ export default function Preco() {
   return (
     <section id="preco" style={{ padding: '96px 24px', backgroundColor: '#fff0f5' }}>
       <div style={{ maxWidth: '480px', margin: '0 auto', textAlign: 'center' }}>
-
         <div style={{
           display: 'inline-block', backgroundColor: '#fce7f3',
           color: '#e91e8c', padding: '4px 16px',
           borderRadius: '999px', fontSize: '12px',
           fontWeight: '600', marginBottom: '16px', letterSpacing: '1px'
         }}>
-          PLANOS
+          PLANO ÚNICO
         </div>
 
         <h2 style={{
@@ -40,7 +39,6 @@ export default function Preco() {
         }}>
           <span style={{ color: '#9ca3af', fontSize: '15px' }}>por apenas</span>
 
-          {/* Preço em tamanho responsivo para não quebrar */}
           <div style={{
             fontSize: 'clamp(40px, 12vw, 72px)',
             fontWeight: '800', color: '#e91e8c',
@@ -76,7 +74,6 @@ export default function Preco() {
             Criar minha página agora 💕
           </a>
         </div>
-
       </div>
     </section>
   )

@@ -4,6 +4,14 @@ import { useEffect, useState, use } from 'react'
 import Link from 'next/link'
 import { supabase } from '../../lib/supabase'
 
+function getSpotifyEmbedUrl(url) {
+  if (!url) return ''
+
+  return url
+    .replace('open.spotify.com/track/', 'open.spotify.com/embed/track/')
+    .replace('open.spotify.com/playlist/', 'open.spotify.com/embed/playlist/')
+}
+
 export default function Preview({ params }) {
   const { id } = use(params)
   const [presente, setPresente] = useState(null)
@@ -20,6 +28,7 @@ export default function Preview({ params }) {
       if (!error) setPresente(data)
       setCarregando(false)
     }
+
     buscarPresente()
   }, [id])
 
@@ -42,13 +51,13 @@ export default function Preview({ params }) {
   )
 
   const fotos = presente.fotos_urls
-    ? presente.fotos_urls.split(',').filter(url => url.trim() !== '')
+    ? presente.fotos_urls.split(',').map((url) => url.trim()).filter(Boolean)
     : []
+
+  const musicaEmbedUrl = getSpotifyEmbedUrl(presente.musica_url)
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0a0a0a', color: 'white' }}>
-
-      {/* Banner de preview */}
       <div style={{
         backgroundColor: '#e91e8c',
         padding: '12px',
@@ -56,15 +65,13 @@ export default function Preview({ params }) {
         fontSize: '14px',
         fontWeight: '600'
       }}>
-        👁️ Você está vendo um preview —{' '}
+        👁️ Você está vendo um preview -{' '}
         <Link href={`/pagamento?id=${id}`} style={{ color: 'white', marginLeft: '4px' }}>
           Pague R$19,90 para liberar o link 💌
         </Link>
       </div>
 
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '40px 24px' }}>
-
-        {/* Cabeçalho */}
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
           <p style={{ color: '#f472b6', fontSize: '14px', marginBottom: '8px' }}>
             Uma mensagem especial de
@@ -83,27 +90,22 @@ export default function Preview({ params }) {
           )}
         </div>
 
-        {/* Música */}
-        {presente.musica_url && (
+        {musicaEmbedUrl && (
           <div style={{ marginBottom: '32px' }}>
             <p style={{ color: '#f472b6', fontSize: '14px', marginBottom: '12px', textAlign: 'center' }}>
               🎵 Nossa música
             </p>
             <iframe
-              src={presente.musica_url
-                .replace('open.spotify.com/track/', 'open.spotify.com/embed/track/')
-                .replace('open.spotify.com/playlist/', 'open.spotify.com/embed/playlist/')
-              }
+              title="Música do presente"
+              src={musicaEmbedUrl}
               width="100%"
               height="80"
-              frameBorder="0"
               allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-              style={{ borderRadius: '12px' }}
+              style={{ borderRadius: '12px', border: 0 }}
             />
           </div>
         )}
 
-        {/* Mensagem */}
         <div style={{
           backgroundColor: '#111827',
           borderRadius: '20px',
@@ -111,15 +113,14 @@ export default function Preview({ params }) {
           marginBottom: '32px',
           border: '1px solid #1f2937'
         }}>
-          <p style={{ fontSize: '18px', lineHeight: 1.8, color: '#e5e7eb', fontStyle: 'italic' }}>
+          <p style={{ fontSize: '18px', lineHeight: 1.8, color: '#e5e7eb', fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>
             &ldquo;{presente.mensagem}&rdquo;
           </p>
           <p style={{ color: '#f472b6', marginTop: '16px', fontWeight: '600' }}>
-            — {presente.nome_remetente} ❤️
+            - {presente.nome_remetente} ❤️
           </p>
         </div>
 
-        {/* Fotos */}
         {fotos.length > 0 && (
           <div style={{ marginBottom: '40px' }}>
             <p style={{ color: '#f472b6', fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>
@@ -132,8 +133,8 @@ export default function Preview({ params }) {
             }}>
               {fotos.map((url, i) => (
                 <img
-                  key={i}
-                  src={url.trim()}
+                  key={url}
+                  src={url}
                   alt={`Foto ${i + 1}`}
                   style={{
                     width: '100%',
@@ -147,7 +148,6 @@ export default function Preview({ params }) {
           </div>
         )}
 
-        {/* CTA para comprar */}
         <div style={{
           backgroundColor: '#111827',
           borderRadius: '20px',
@@ -174,7 +174,6 @@ export default function Preview({ params }) {
             💌 Liberar meu presente
           </Link>
         </div>
-
       </div>
     </div>
   )

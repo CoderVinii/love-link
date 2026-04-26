@@ -4,12 +4,9 @@ export default function Hero() {
       minHeight: '100vh', display: 'flex',
       alignItems: 'center', justifyContent: 'center',
       padding: '80px 24px',
-      /* Gradiente suave de cima para baixo */
       background: 'linear-gradient(180deg, #fff0f5 0%, #fff5f7 100%)'
     }}>
       <div style={{ maxWidth: '720px', textAlign: 'center' }}>
-
-        {/* Tag pequena */}
         <div style={{
           display: 'inline-block',
           backgroundColor: '#fce7f3',
@@ -20,10 +17,8 @@ export default function Hero() {
           ✨ O presente digital mais especial
         </div>
 
-        {/* Título grande — fonte menor no mobile via fontSize responsivo */}
         <h1 style={{
           fontSize: 'clamp(36px, 7vw, 72px)',
-          /* clamp(mínimo, ideal, máximo) — se adapta ao tamanho da tela */
           fontWeight: '800', lineHeight: 1.1, marginBottom: '24px',
           color: '#1a1a2e'
         }}>
@@ -61,7 +56,6 @@ export default function Hero() {
           </a>
         </div>
 
-        {/* Números de prova social como no DearYou */}
         <div style={{
           display: 'flex', gap: '40px', justifyContent: 'center',
           marginTop: '56px', flexWrap: 'wrap'
@@ -77,7 +71,6 @@ export default function Hero() {
             </div>
           ))}
         </div>
-
       </div>
     </section>
   )

@@ -11,19 +11,16 @@ export default function Header() {
         padding: '16px 24px',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center'
       }}>
-        {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '22px' }}>💌</span>
           <span style={{ fontWeight: '800', fontSize: '20px', color: '#e91e8c' }}>Lovelink</span>
         </div>
 
-        {/* Botão — texto menor para não quebrar no mobile */}
         <a href="#preco" style={{
           backgroundColor: '#e91e8c', color: 'white',
           padding: '10px 20px', borderRadius: '999px',
           fontWeight: '600', fontSize: '13px',
           textDecoration: 'none', whiteSpace: 'nowrap'
-          /* whiteSpace: nowrap impede o texto de quebrar linha */
         }}>
           Criar minha página 💕
         </a>

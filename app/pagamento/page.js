@@ -14,7 +14,6 @@ function PagamentoContent() {
   const [carregando, setCarregando] = useState(false)
 
   async function handlePagamento() {
-    // 🔥 Evita múltiplos cliques
     if (carregando) return
 
     setCarregando(true)
@@ -25,20 +24,19 @@ function PagamentoContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           presenteId: id,
-          timestamp: Date.now() // 🔥 força nova preferência
+          timestamp: Date.now()
         })
       })
 
       const data = await res.json()
 
       if (data.url) {
-        // 🔥 Redireciona para o Mercado Pago
         window.location.href = data.url
       } else {
         alert('Erro ao criar pagamento. Tente novamente.')
       }
-
     } catch (e) {
+      console.error('Erro ao criar pagamento:', e)
       alert('Erro de conexão. Tente novamente.')
     }
 
@@ -55,8 +53,6 @@ function PagamentoContent() {
       padding: '40px 24px'
     }}>
       <div style={{ maxWidth: '480px', width: '100%', textAlign: 'center' }}>
-
-        {/* Logo */}
         <Link href="/" style={{ textDecoration: 'none' }}>
           <span style={{ fontSize: '22px' }}>💌</span>
           <span style={{
@@ -77,8 +73,6 @@ function PagamentoContent() {
           boxShadow: '0 4px 24px rgba(233,30,140,0.08)',
           marginTop: '40px'
         }}>
-
-          {/* Estado de erro */}
           {erro ? (
             <>
               <div style={{ fontSize: '56px', marginBottom: '16px' }}>😔</div>
@@ -119,7 +113,6 @@ function PagamentoContent() {
             </>
           )}
 
-          {/* Preview */}
           <Link
             href={`/preview/${id}`}
             style={{
@@ -137,7 +130,6 @@ function PagamentoContent() {
             👁️ Ver preview do presente
           </Link>
 
-          {/* Preço */}
           <div style={{
             backgroundColor: '#fff5f7',
             borderRadius: '16px',
@@ -158,7 +150,6 @@ function PagamentoContent() {
             </p>
           </div>
 
-          {/* Botão */}
           <button
             onClick={handlePagamento}
             disabled={carregando}
@@ -190,7 +181,6 @@ function PagamentoContent() {
         }}>
           Presente #{id}
         </p>
-
       </div>
     </div>
   )

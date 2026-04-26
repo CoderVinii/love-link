@@ -3,13 +3,17 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-// Evita criar múltiplas instâncias
-let supabase
-
-if (!global._supabase) {
-  global._supabase = createClient(supabaseUrl, supabaseAnonKey)
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Supabase public environment variables are missing.')
 }
 
-supabase = global._supabase
+// Reuse the client across hot reloads in dev without relying on Node-only globals.
+const globalForSupabase = globalThis
+
+if (!globalForSupabase._supabase) {
+  globalForSupabase._supabase = createClient(supabaseUrl, supabaseAnonKey)
+}
+
+const supabase = globalForSupabase._supabase
 
 export { supabase }
