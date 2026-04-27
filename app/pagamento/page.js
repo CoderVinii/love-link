@@ -2,9 +2,11 @@
 
 export const dynamic = 'force-dynamic'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { supabase } from '../lib/supabase'
+import { getPlano, parseMensagemPayload } from '../lib/presentePayload'
 
 function PagamentoContent() {
   const params = useSearchParams()
@@ -12,6 +14,28 @@ function PagamentoContent() {
   const erro = params.get('erro')
 
   const [carregando, setCarregando] = useState(false)
+  const [presente, setPresente] = useState(null)
+
+  useEffect(() => {
+    async function carregarPresente() {
+      if (!id) return
+
+      const { data } = await supabase
+        .from('presentes')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle()
+
+      setPresente(data)
+    }
+
+    carregarPresente()
+  }, [id])
+
+  const plano = useMemo(() => {
+    const payload = parseMensagemPayload(presente?.mensagem)
+    return getPlano(payload.plano)
+  }, [presente])
 
   async function handlePagamento() {
     if (carregando) return
@@ -44,145 +68,48 @@ function PagamentoContent() {
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      backgroundColor: '#fff5f7',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '40px 24px'
-    }}>
-      <div style={{ maxWidth: '480px', width: '100%', textAlign: 'center' }}>
-        <Link href="/" style={{ textDecoration: 'none' }}>
-          <span style={{ fontSize: '22px' }}>💌</span>
-          <span style={{
-            fontWeight: '800',
-            fontSize: '22px',
-            color: '#e91e8c',
-            marginLeft: '8px'
-          }}>
-            Lovelink
-          </span>
+    <main className="grid min-h-screen place-items-center bg-[#fff7f7] px-5 py-10 text-[#201629]">
+      <div className="w-full max-w-lg text-center">
+        <Link href="/" className="inline-flex items-center gap-2 text-2xl font-black text-pink-600">
+          <span>💌</span>
+          <span>Lovelink</span>
         </Link>
 
-        <div style={{
-          backgroundColor: 'white',
-          borderRadius: '24px',
-          padding: '40px',
-          border: '1px solid #fce7f3',
-          boxShadow: '0 4px 24px rgba(233,30,140,0.08)',
-          marginTop: '40px'
-        }}>
-          {erro ? (
-            <>
-              <div style={{ fontSize: '56px', marginBottom: '16px' }}>😔</div>
-              <h2 style={{
-                fontSize: '24px',
-                fontWeight: '800',
-                color: '#1a1a2e',
-                marginBottom: '8px'
-              }}>
-                Pagamento não concluído
-              </h2>
-              <p style={{
-                color: '#9ca3af',
-                fontSize: '15px',
-                marginBottom: '32px'
-              }}>
-                Não se preocupe! Seu presente foi salvo. Tente pagar novamente.
-              </p>
-            </>
-          ) : (
-            <>
-              <div style={{ fontSize: '56px', marginBottom: '16px' }}>💳</div>
-              <h2 style={{
-                fontSize: '24px',
-                fontWeight: '800',
-                color: '#1a1a2e',
-                marginBottom: '8px'
-              }}>
-                Quase lá! 🎉
-              </h2>
-              <p style={{
-                color: '#9ca3af',
-                fontSize: '15px',
-                marginBottom: '32px'
-              }}>
-                Seu presente foi criado! Pague agora para liberar o link.
-              </p>
-            </>
-          )}
+        <section className="mt-10 rounded-3xl border border-rose-100 bg-white p-10 shadow-xl shadow-rose-100/70">
+          <div className="text-6xl">{erro ? '😔' : '💳'}</div>
+          <h1 className="mt-5 text-3xl font-black">
+            {erro ? 'Pagamento não concluído' : 'Quase lá! 🎉'}
+          </h1>
+          <p className="mt-3 leading-7 text-slate-500">
+            {erro ? 'Não se preocupe! Sua retrospectiva foi salva. Tente pagar novamente.' : 'Sua retrospectiva foi criada. Pague agora para liberar o link final.'}
+          </p>
 
-          <Link
-            href={`/preview/${id}`}
-            style={{
-              display: 'block',
-              padding: '14px',
-              borderRadius: '999px',
-              border: '2px solid #fce7f3',
-              color: '#e91e8c',
-              fontWeight: '600',
-              fontSize: '15px',
-              textDecoration: 'none',
-              marginBottom: '12px'
-            }}
-          >
-            👁️ Ver preview do presente
+          <Link href={`/preview/${id}`} className="mt-8 block rounded-full border border-rose-100 px-5 py-4 font-bold text-pink-600">
+            👁️ Ver preview da retrospectiva
           </Link>
 
-          <div style={{
-            backgroundColor: '#fff5f7',
-            borderRadius: '16px',
-            padding: '16px',
-            marginBottom: '20px'
-          }}>
-            <p style={{ color: '#9ca3af', fontSize: '14px' }}>Total a pagar</p>
-            <p style={{
-              fontSize: '40px',
-              fontWeight: '800',
-              color: '#e91e8c',
-              margin: '4px 0'
-            }}>
-              R$ 19,90
+          <div className="my-5 rounded-2xl bg-rose-50 p-6">
+            <p className="text-sm text-slate-500">Plano {plano.nome}</p>
+            <p className="mt-2 text-5xl font-black text-pink-600">
+              R$ {plano.preco.toFixed(2).replace('.', ',')}
             </p>
-            <p style={{ color: '#9ca3af', fontSize: '13px' }}>
-              pagamento único • acesso vitalício
-            </p>
+            <p className="mt-2 text-sm text-slate-500">{plano.acesso}</p>
           </div>
 
           <button
             onClick={handlePagamento}
             disabled={carregando}
-            style={{
-              width: '100%',
-              padding: '18px',
-              borderRadius: '999px',
-              border: 'none',
-              backgroundColor: carregando ? '#7dd3fc' : '#009ee3',
-              color: 'white',
-              fontWeight: '700',
-              fontSize: '16px',
-              cursor: carregando ? 'not-allowed' : 'pointer',
-              marginBottom: '16px'
-            }}
+            className="w-full rounded-full bg-[#009ee3] px-6 py-5 font-black text-white shadow-lg disabled:opacity-60"
           >
             {carregando ? 'Aguarde...' : '💳 Pagar com Mercado Pago'}
           </button>
 
-          <p style={{ color: '#9ca3af', fontSize: '13px' }}>
-            🔒 Pagamento 100% seguro via Mercado Pago
-          </p>
-        </div>
+          <p className="mt-5 text-sm text-slate-500">🔒 Pagamento 100% seguro via Mercado Pago</p>
+        </section>
 
-        <p style={{
-          color: '#d1d5db',
-          fontSize: '12px',
-          marginTop: '16px'
-        }}>
-          Presente #{id}
-        </p>
+        <p className="mt-6 text-xs text-slate-300">Retrospectiva #{id}</p>
       </div>
-    </div>
+    </main>
   )
 }
 

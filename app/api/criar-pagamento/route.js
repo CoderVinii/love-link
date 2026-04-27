@@ -1,5 +1,6 @@
 import { MercadoPagoConfig, Preference } from 'mercadopago'
 import { createClient } from '@supabase/supabase-js'
+import { getPlano, parseMensagemPayload } from '../../lib/presentePayload'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -37,7 +38,7 @@ export async function POST(request) {
 
     const { data: presente, error: erroPresente } = await supabase
       .from('presentes')
-      .select('id, nome_remetente, nome_destinatario')
+      .select('id, nome_remetente, nome_destinatario, mensagem')
       .eq('id', presenteId)
       .maybeSingle()
 
@@ -66,6 +67,8 @@ export async function POST(request) {
     })
 
     const preference = new Preference(client)
+    const dadosPresente = parseMensagemPayload(presente.mensagem)
+    const plano = getPlano(dadosPresente.plano)
     const resultado = await preference.create({
       body: {
         items: [
@@ -75,7 +78,7 @@ export async function POST(request) {
             description: 'Carta digital personalizada com fotos e música',
             quantity: 1,
             currency_id: 'BRL',
-            unit_price: 19.9,
+            unit_price: plano.preco,
           },
         ],
         back_urls: {

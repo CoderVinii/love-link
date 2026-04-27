@@ -1,16 +1,8 @@
 'use client'
 
 import { useEffect, useState, use } from 'react'
-import Link from 'next/link'
 import { supabase } from '../../lib/supabase'
-
-function getSpotifyEmbedUrl(url) {
-  if (!url) return ''
-
-  return url
-    .replace('open.spotify.com/track/', 'open.spotify.com/embed/track/')
-    .replace('open.spotify.com/playlist/', 'open.spotify.com/embed/playlist/')
-}
+import RetrospectivaView from '../../components/RetrospectivaView'
 
 export default function Preview({ params }) {
   const { id } = use(params)
@@ -19,162 +11,34 @@ export default function Preview({ params }) {
 
   useEffect(() => {
     async function buscarPresente() {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('presentes')
         .select('*')
         .eq('id', id)
-        .single()
+        .maybeSingle()
 
-      if (!error) setPresente(data)
+      setPresente(data)
       setCarregando(false)
     }
 
     buscarPresente()
   }, [id])
 
-  if (carregando) return (
-    <div style={{
-      minHeight: '100vh', backgroundColor: '#0a0a0a',
-      display: 'flex', alignItems: 'center', justifyContent: 'center'
-    }}>
-      <p style={{ color: '#f472b6' }}>Carregando seu presente... 💕</p>
-    </div>
-  )
-
-  if (!presente) return (
-    <div style={{
-      minHeight: '100vh', backgroundColor: '#0a0a0a',
-      display: 'flex', alignItems: 'center', justifyContent: 'center'
-    }}>
-      <p style={{ color: 'white' }}>Presente não encontrado.</p>
-    </div>
-  )
-
-  const fotos = presente.fotos_urls
-    ? presente.fotos_urls.split(',').map((url) => url.trim()).filter(Boolean)
-    : []
-
-  const musicaEmbedUrl = getSpotifyEmbedUrl(presente.musica_url)
-
-  return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#0a0a0a', color: 'white' }}>
-      <div style={{
-        backgroundColor: '#e91e8c',
-        padding: '12px',
-        textAlign: 'center',
-        fontSize: '14px',
-        fontWeight: '600'
-      }}>
-        👁️ Você está vendo um preview -{' '}
-        <Link href={`/pagamento?id=${id}`} style={{ color: 'white', marginLeft: '4px' }}>
-          Pague R$19,90 para liberar o link 💌
-        </Link>
+  if (carregando) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-[#07070d] text-pink-300">
+        Carregando sua retrospectiva...
       </div>
+    )
+  }
 
-      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '40px 24px' }}>
-        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <p style={{ color: '#f472b6', fontSize: '14px', marginBottom: '8px' }}>
-            Uma mensagem especial de
-          </p>
-          <h1 style={{ fontSize: '36px', fontWeight: '800', marginBottom: '4px' }}>
-            {presente.nome_remetente}
-          </h1>
-          <p style={{ color: '#9ca3af' }}>para</p>
-          <h2 style={{ fontSize: '48px', fontWeight: '800', color: '#f472b6' }}>
-            {presente.nome_destinatario} 💕
-          </h2>
-          {presente.data_relacionamento && (
-            <p style={{ color: '#6b7280', marginTop: '12px', fontSize: '14px' }}>
-              Juntos desde {new Date(presente.data_relacionamento).toLocaleDateString('pt-BR')}
-            </p>
-          )}
-        </div>
-
-        {musicaEmbedUrl && (
-          <div style={{ marginBottom: '32px' }}>
-            <p style={{ color: '#f472b6', fontSize: '14px', marginBottom: '12px', textAlign: 'center' }}>
-              🎵 Nossa música
-            </p>
-            <iframe
-              title="Música do presente"
-              src={musicaEmbedUrl}
-              width="100%"
-              height="80"
-              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-              style={{ borderRadius: '12px', border: 0 }}
-            />
-          </div>
-        )}
-
-        <div style={{
-          backgroundColor: '#111827',
-          borderRadius: '20px',
-          padding: '32px',
-          marginBottom: '32px',
-          border: '1px solid #1f2937'
-        }}>
-          <p style={{ fontSize: '18px', lineHeight: 1.8, color: '#e5e7eb', fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>
-            &ldquo;{presente.mensagem}&rdquo;
-          </p>
-          <p style={{ color: '#f472b6', marginTop: '16px', fontWeight: '600' }}>
-            - {presente.nome_remetente} ❤️
-          </p>
-        </div>
-
-        {fotos.length > 0 && (
-          <div style={{ marginBottom: '40px' }}>
-            <p style={{ color: '#f472b6', fontSize: '14px', marginBottom: '16px', textAlign: 'center' }}>
-              📸 Nossas memórias
-            </p>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: fotos.length === 1 ? '1fr' : 'repeat(2, 1fr)',
-              gap: '8px'
-            }}>
-              {fotos.map((url, i) => (
-                <img
-                  key={url}
-                  src={url}
-                  alt={`Foto ${i + 1}`}
-                  style={{
-                    width: '100%',
-                    aspectRatio: '1',
-                    objectFit: 'cover',
-                    borderRadius: '12px'
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div style={{
-          backgroundColor: '#111827',
-          borderRadius: '20px',
-          padding: '32px',
-          textAlign: 'center',
-          border: '1px solid #e91e8c'
-        }}>
-          <p style={{ fontSize: '20px', fontWeight: '700', marginBottom: '8px' }}>
-            Gostou do presente? 💕
-          </p>
-          <p style={{ color: '#9ca3af', marginBottom: '24px', fontSize: '14px' }}>
-            Pague R$19,90 para liberar o link e enviar para {presente.nome_destinatario}
-          </p>
-          <Link href={`/pagamento?id=${id}`} style={{
-            display: 'inline-block',
-            backgroundColor: '#e91e8c',
-            color: 'white',
-            padding: '16px 32px',
-            borderRadius: '999px',
-            fontWeight: '700',
-            textDecoration: 'none',
-            fontSize: '16px'
-          }}>
-            💌 Liberar meu presente
-          </Link>
-        </div>
+  if (!presente) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-[#07070d] text-white">
+        Retrospectiva não encontrada.
       </div>
-    </div>
-  )
+    )
+  }
+
+  return <RetrospectivaView presente={presente} preview />
 }
