@@ -33,7 +33,7 @@ export function parseMensagemPayload(mensagem) {
         versao: parsed.versao || 1,
         texto: parsed.texto || '',
         momentos: Array.isArray(parsed.momentos) ? parsed.momentos : [],
-        plano: parsed.plano || 'premium',
+        plano: PLANOS[parsed.plano] ? parsed.plano : 'premium',
         extras: parsed.extras || {},
       }
     }
@@ -55,8 +55,8 @@ export function buildMensagemPayload({ texto, momentos, plano, extras }) {
     tipo: 'retrospectiva',
     versao: 2,
     texto: texto || '',
-    momentos: momentos || [],
-    plano: plano || 'premium',
+    momentos: Array.isArray(momentos) ? momentos : [],
+    plano: PLANOS[plano] ? plano : 'premium',
     extras: extras || {},
   })
 }
@@ -77,14 +77,14 @@ export function formatarData(data) {
   return date.toLocaleDateString('pt-BR')
 }
 
-export function calcularTempoJuntos(data) {
+export function calcularTempoJuntos(data, agora = Date.now()) {
   const inicio = data ? new Date(`${data}T00:00:00`) : null
 
   if (!inicio || Number.isNaN(inicio.getTime())) {
     return { dias: 0, horas: 0, minutos: 0, segundos: 0 }
   }
 
-  const diff = Math.max(0, Date.now() - inicio.getTime())
+  const diff = Math.max(0, agora - inicio.getTime())
   const totalSeconds = Math.floor(diff / 1000)
 
   return {

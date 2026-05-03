@@ -25,6 +25,17 @@ function getCheckoutUrl(preference) {
   return preference.init_point
 }
 
+function extrairEmailComprador(mensagem) {
+  const payload = parseMensagemPayload(mensagem)
+  const email = payload.extras?.email
+
+  if (typeof email === 'string' && email.includes('@')) {
+    return email.trim().toLowerCase()
+  }
+
+  return undefined
+}
+
 export async function POST(request) {
   try {
     const body = await request.json()
@@ -38,7 +49,7 @@ export async function POST(request) {
 
     const { data: presente, error: erroPresente } = await supabase
       .from('presentes')
-      .select('id, nome_remetente, nome_destinatario, mensagem')
+      .select('id, nome_remetente, nome_destinatario, mensagem, fotos_urls, pago')
       .eq('id', presenteId)
       .maybeSingle()
 
@@ -46,6 +57,18 @@ export async function POST(request) {
       console.error('Erro ao buscar presente:', erroPresente)
       return Response.json({ erro: 'Presente não encontrado' }, { status: 404 })
     }
+
+    if (presente.pago) {
+      return Response.json({ erro: 'Este presente já foi pago.' }, { status: 400 })
+    }
+
+    if (!presente.fotos_urls) {
+      return Response.json({ erro: 'Finalize o envio das fotos antes do pagamento.' }, { status: 400 })
+    }
+
+    const dadosPresente = parseMensagemPayload(presente.mensagem)
+    const plano = getPlano(dadosPresente.plano)
+    const emailComprador = extrairEmailComprador(presente.mensagem)
 
     const { data: pagamento, error: erroInsert } = await supabase
       .from('pagamentos')
@@ -67,20 +90,22 @@ export async function POST(request) {
     })
 
     const preference = new Preference(client)
-    const dadosPresente = parseMensagemPayload(presente.mensagem)
-    const plano = getPlano(dadosPresente.plano)
     const resultado = await preference.create({
       body: {
         items: [
           {
             id: String(presenteId),
             title: `Lovelink - Presente para ${presente.nome_destinatario || 'alguém especial'}`,
-            description: 'Carta digital personalizada com fotos e música',
+            description: `Retrospectiva digital personalizada - plano ${plano.nome}`,
             quantity: 1,
             currency_id: 'BRL',
             unit_price: plano.preco,
           },
         ],
+        payer: emailComprador ? { email: emailComprador } : undefined,
+        payment_methods: {
+          installments: 1,
+        },
         back_urls: {
           success: `${baseUrl}/presente/${presenteId}`,
           failure: `${baseUrl}/pagamento?id=${presenteId}&erro=1`,
@@ -88,10 +113,13 @@ export async function POST(request) {
         },
         auto_return: 'approved',
         notification_url: `${baseUrl}/api/webhook-pagamento`,
+        statement_descriptor: 'LOVELINK',
         external_reference: externalReference,
         metadata: {
           pagamento_id: pagamento.id,
           presente_id: presenteId,
+          plano: dadosPresente.plano,
+          valor: plano.preco,
         },
       },
     })
@@ -107,6 +135,15 @@ export async function POST(request) {
     if (erroUpdate) {
       console.error('Erro ao atualizar pagamento:', erroUpdate)
     }
+
+    console.log('Preferência Mercado Pago criada:', {
+      presenteId,
+      pagamentoId: pagamento.id,
+      preferenceId: resultado.id,
+      plano: dadosPresente.plano,
+      valor: plano.preco,
+      sandbox: Boolean(mercadoPagoAccessToken?.startsWith('TEST-')),
+    })
 
     return Response.json({
       url: getCheckoutUrl(resultado),

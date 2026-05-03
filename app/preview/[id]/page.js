@@ -34,7 +34,7 @@ export default function Preview({ params }) {
 
   if (!presente) {
     return (
-      <div className="grid min-h-screen place-items-center bg-[#07070d] text-white">
+      <div className="grid min-h-screen place-items-center bg-[#07070d] px-5 text-center text-white">
         Retrospectiva não encontrada.
       </div>
     )

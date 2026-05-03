@@ -1,13 +1,46 @@
 @import "tailwindcss";
 
-* {
-  margin: 0;
-  padding: 0;
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  scroll-behavior: smooth;
 }
 
 body {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background-color: #fff5f7;  /* fundo rosa bem clarinho */
-  color: #1a1a2e;             /* texto escuro */
+  background-color: #fff5f7;
+  color: #1a1a2e;
+}
+
+.lovelink-floating-heart {
+  position: absolute;
+  color: #3f2230;
+  font-size: 4rem;
+  line-height: 1;
+  text-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.75),
+    0 0 28px rgba(216, 95, 122, 0.2);
+  animation-name: lovelink-float-heart;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+@keyframes lovelink-float-heart {
+  0% {
+    transform: translate3d(0, 18px, 0) rotate(-10deg) scale(var(--heart-scale, 1));
+  }
+
+  50% {
+    transform: translate3d(24px, -28px, 0) rotate(8deg) scale(calc(var(--heart-scale, 1) + 0.05));
+  }
+
+  100% {
+    transform: translate3d(0, 18px, 0) rotate(-10deg) scale(var(--heart-scale, 1));
+  }
 }

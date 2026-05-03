@@ -2,12 +2,17 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
-import { buildMensagemPayload, getPlano, PLANOS } from '../../lib/presentePayload'
+import { buildMensagemPayload, formatarData, getPlano, PLANOS } from '../../lib/presentePayload'
 
 const STORAGE_KEY = 'lovelink-retrospectiva'
+const MIN_FOTOS = 3
+const MAX_FILE_SIZE = 8 * 1024 * 1024
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+
 const etapas = [
+  ['plano', 'Plano'],
   ['informacoes', 'Informações'],
   ['fotos', 'Fotos'],
   ['musica', 'Música'],
@@ -24,9 +29,18 @@ const estadoInicial = {
   ocultarSigno: false,
   mensagem: '',
   musica: '',
-  plano: 'premium',
+  plano: '',
   fotos: [],
   termos: false,
+}
+
+function normalizarEstado(valor) {
+  return {
+    ...estadoInicial,
+    ...(valor || {}),
+    fotos: Array.isArray(valor?.fotos) ? valor.fotos : [],
+    plano: PLANOS[valor?.plano] ? valor.plano : '',
+  }
 }
 
 function lerEstado() {
@@ -34,10 +48,19 @@ function lerEstado() {
 
   try {
     const salvo = window.localStorage.getItem(STORAGE_KEY)
-    return salvo ? { ...estadoInicial, ...JSON.parse(salvo) } : estadoInicial
+    return salvo ? normalizarEstado(JSON.parse(salvo)) : estadoInicial
   } catch {
     return estadoInicial
   }
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
 }
 
 function dataUrlToBlob(dataUrl) {
@@ -51,15 +74,6 @@ function dataUrlToBlob(dataUrl) {
   }
 
   return new Blob([bytes], { type: mime })
-}
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result)
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
 }
 
 function gerarTitulo(index) {
@@ -93,19 +107,19 @@ function gerarDescricao(index) {
 }
 
 function Progresso({ etapaAtual }) {
-  const atualIndex = etapas.findIndex(([key]) => key === etapaAtual)
+  const atualIndex = Math.max(0, etapas.findIndex(([key]) => key === etapaAtual))
   const progresso = ((atualIndex + 1) / etapas.length) * 100
 
   return (
-    <div className="mx-auto mb-10 max-w-4xl">
-      <Link href="/" className="mx-auto mb-8 flex w-fit items-center gap-2 text-2xl font-black text-pink-600">
-        <span>💌</span>
+    <div className="mx-auto mb-8 max-w-5xl">
+      <Link href="/" className="mx-auto mb-6 flex w-fit items-center gap-2 text-2xl font-black text-pink-600">
+        <span aria-hidden="true">♡</span>
         <span>Lovelink</span>
       </Link>
       <div className="h-2 overflow-hidden rounded-full bg-rose-100">
         <div className="h-full rounded-full bg-[#d85f7a] transition-all" style={{ width: `${progresso}%` }} />
       </div>
-      <div className="mt-4 grid grid-cols-4 gap-2 text-center text-xs font-bold text-slate-400">
+      <div className="mt-4 grid grid-cols-5 gap-1 text-center text-[11px] font-bold text-slate-400 sm:text-xs">
         {etapas.map(([key, label], index) => (
           <span key={key} className={index <= atualIndex ? 'text-pink-600' : ''}>{label}</span>
         ))}
@@ -116,7 +130,7 @@ function Progresso({ etapaAtual }) {
 
 function Card({ children, className = '' }) {
   return (
-    <section className={`rounded-3xl border border-rose-100 bg-white p-8 shadow-xl shadow-rose-100/60 ${className}`}>
+    <section className={`rounded-2xl border border-rose-100 bg-white p-5 shadow-lg shadow-rose-100/50 sm:p-7 ${className}`}>
       {children}
     </section>
   )
@@ -127,38 +141,100 @@ function Opcao({ ativo, children, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-xl border px-5 py-4 font-semibold transition ${ativo ? 'border-[#d85f7a] bg-rose-50 text-[#d85f7a]' : 'border-slate-200 bg-white hover:border-rose-200'}`}
+      className={`rounded-xl border px-4 py-3 text-sm font-semibold transition sm:text-base ${ativo ? 'border-[#d85f7a] bg-rose-50 text-[#d85f7a]' : 'border-slate-200 bg-white hover:border-rose-200'}`}
     >
       {children}
     </button>
   )
 }
 
+function PlanoCard({ id, item, ativo, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex h-full flex-col rounded-2xl border p-6 text-left transition ${ativo ? 'border-[#d85f7a] bg-rose-50 shadow-lg shadow-rose-100' : 'border-rose-100 bg-white hover:-translate-y-1 hover:border-rose-200 hover:shadow-lg hover:shadow-rose-100'}`}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xl font-black">{item.nome}</p>
+          <p className="mt-2 text-4xl font-black text-[#d85f7a]">
+            R$ {item.preco.toFixed(2).replace('.', ',')}
+          </p>
+        </div>
+        <span className={`mt-1 h-5 w-5 rounded-full border ${ativo ? 'border-[#d85f7a] bg-[#d85f7a]' : 'border-slate-300'}`} />
+      </div>
+      <div className="mt-6 space-y-3 text-sm leading-6 text-slate-600">
+        <p>Até {item.fotos} fotos na retrospectiva</p>
+        <p>{item.acesso}</p>
+        <p>{item.musica}</p>
+      </div>
+      <span className="mt-6 inline-flex w-fit rounded-full bg-white px-4 py-2 text-sm font-bold text-pink-600">
+        {id === 'premium' ? 'Mais completo' : 'Essencial'}
+      </span>
+    </button>
+  )
+}
+
 export default function RetrospectivaFlow({ etapa }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const planoQuery = searchParams.get('plano')
   const [form, setForm] = useState(estadoInicial)
+  const [hidratado, setHidratado] = useState(false)
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState('')
 
   useEffect(() => {
-    setForm(lerEstado())
-  }, [])
+    const salvo = lerEstado()
+    const planoInicial = PLANOS[planoQuery] ? planoQuery : salvo.plano
+    setForm({ ...salvo, plano: planoInicial })
+    setHidratado(true)
+  }, [planoQuery])
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (hidratado) {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(form))
     }
-  }, [form])
+  }, [form, hidratado])
 
-  const plano = useMemo(() => getPlano(form.plano), [form.plano])
+  useEffect(() => {
+    if (hidratado && etapa !== 'plano' && !PLANOS[form.plano]) {
+      router.replace('/criar/plano')
+    }
+  }, [etapa, form.plano, hidratado, router])
+
+  const plano = useMemo(() => getPlano(form.plano || 'premium'), [form.plano])
+  const limiteFotos = plano.fotos
+  const etapaIndex = etapas.findIndex(([key]) => key === etapa)
+  const etapaAnterior = etapaIndex > 0 ? etapas[etapaIndex - 1][0] : null
+  const proximaEtapa = etapaIndex >= 0 && etapaIndex < etapas.length - 1 ? etapas[etapaIndex + 1][0] : null
 
   function atualizar(campo, valor) {
     setForm((atual) => ({ ...atual, [campo]: valor }))
   }
 
-  function irPara(proximaEtapa) {
+  function escolherPlano(planoEscolhido) {
     setErro('')
-    router.push(`/criar/${proximaEtapa}`)
+    setForm((atual) => ({
+      ...atual,
+      plano: planoEscolhido,
+      fotos: atual.fotos.slice(0, PLANOS[planoEscolhido].fotos),
+    }))
+  }
+
+  function irPara(destino) {
+    setErro('')
+    router.push(`/criar/${destino}`)
+  }
+
+  function validarPlano() {
+    if (!PLANOS[form.plano]) {
+      setErro('Escolha um plano para iniciar sua retrospectiva.')
+      return false
+    }
+
+    return true
   }
 
   function validarInformacoes() {
@@ -166,24 +242,57 @@ export default function RetrospectivaFlow({ etapa }) {
       setErro('Preencha email, nomes e data para continuar.')
       return false
     }
+
+    return true
+  }
+
+  function validarFotos() {
+    if (form.fotos.length < MIN_FOTOS) {
+      setErro(`Adicione pelo menos ${MIN_FOTOS} fotos para continuar.`)
+      return false
+    }
+
+    if (form.fotos.length > limiteFotos) {
+      setErro(`O plano ${plano.nome} permite até ${limiteFotos} fotos.`)
+      return false
+    }
+
     return true
   }
 
   async function adicionarFotos(files) {
     const arquivos = Array.from(files || [])
-    const limite = 8 - form.fotos.length
+    const espacoDisponivel = limiteFotos - form.fotos.length
 
-    if (arquivos.length > limite) {
-      setErro(`Você pode adicionar no máximo 8 fotos. Ainda cabem ${limite}.`)
+    if (!validarPlano()) return
+
+    if (espacoDisponivel <= 0) {
+      setErro(`Você já atingiu o limite de ${limiteFotos} fotos do plano ${plano.nome}.`)
       return
     }
 
+    const selecionadas = arquivos.slice(0, espacoDisponivel)
+    const invalida = selecionadas.find((file) => !ALLOWED_TYPES.includes(file.type) || file.size > MAX_FILE_SIZE)
+
+    if (invalida) {
+      setErro('Use apenas imagens JPG, PNG ou WEBP com até 8 MB cada.')
+      return
+    }
+
+    if (arquivos.length > espacoDisponivel) {
+      setErro(`Adicionamos ${espacoDisponivel} foto(s). O plano ${plano.nome} permite até ${limiteFotos}.`)
+    } else {
+      setErro('')
+    }
+
     const novasFotos = await Promise.all(
-      arquivos.map(async (file, index) => {
+      selecionadas.map(async (file, index) => {
         const ordem = form.fotos.length + index
         return {
           id: `${Date.now()}-${file.name}-${index}`,
           name: file.name,
+          type: file.type,
+          size: file.size,
           preview: await fileToDataUrl(file),
           title: gerarTitulo(ordem),
           description: gerarDescricao(ordem),
@@ -191,11 +300,11 @@ export default function RetrospectivaFlow({ etapa }) {
       })
     )
 
-    setErro('')
     setForm((atual) => ({ ...atual, fotos: [...atual.fotos, ...novasFotos] }))
   }
 
   function removerFoto(id) {
+    setErro('')
     setForm((atual) => ({ ...atual, fotos: atual.fotos.filter((foto) => foto.id !== id) }))
   }
 
@@ -208,38 +317,32 @@ export default function RetrospectivaFlow({ etapa }) {
     }))
   }
 
-  async function uploadFotos(idPresente) {
-    const urls = []
+  async function enviarFotosParaStorage(uploadTargets) {
+    const paths = []
 
-    for (let i = 0; i < form.fotos.length; i++) {
+    for (let i = 0; i < uploadTargets.length; i++) {
+      const target = uploadTargets[i]
       const foto = form.fotos[i]
       const blob = dataUrlToBlob(foto.preview)
-      const nomeArquivo = `${idPresente}/foto-${i}-${Date.now()}-${foto.name || 'foto.jpg'}`
 
       const { error } = await supabase.storage
         .from('fotos')
-        .upload(nomeArquivo, blob, { contentType: blob.type })
+        .uploadToSignedUrl(target.path, target.token, blob, {
+          contentType: foto.type || blob.type,
+        })
 
       if (error) throw error
 
-      const { data } = supabase.storage
-        .from('fotos')
-        .getPublicUrl(nomeArquivo)
-
-      urls.push(data.publicUrl)
+      paths.push(target.path)
     }
 
-    return urls
+    return paths
   }
 
   async function finalizar() {
     setErro('')
 
-    if (!validarInformacoes()) return
-    if (form.fotos.length < 3) {
-      setErro('Adicione pelo menos 3 fotos para criar a retrospectiva.')
-      return
-    }
+    if (!validarPlano() || !validarInformacoes() || !validarFotos()) return
     if (!form.termos) {
       setErro('Confirme os termos para finalizar.')
       return
@@ -263,63 +366,116 @@ export default function RetrospectivaFlow({ etapa }) {
         },
       })
 
-      const { data: presente, error: erroInsert } = await supabase
-        .from('presentes')
-        .insert({
-          nome_remetente: form.nomeRemetente,
-          nome_destinatario: form.nomeDestinatario,
-          data_relacionamento: form.dataRelacionamento,
+      const criarRes = await fetch('/api/criar-presente', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nomeRemetente: form.nomeRemetente,
+          nomeDestinatario: form.nomeDestinatario,
+          dataRelacionamento: form.dataRelacionamento,
+          plano: form.plano,
           mensagem: payload,
-          musica_url: '',
-          fotos_urls: '',
-          pago: false,
-        })
-        .select()
-        .single()
+          fotos: form.fotos.map((foto) => ({
+            name: foto.name,
+            type: foto.type,
+            size: foto.size,
+          })),
+        }),
+      })
 
-      if (erroInsert) throw erroInsert
+      const criado = await criarRes.json()
 
-      const urlsFotos = await uploadFotos(presente.id)
+      if (!criarRes.ok) {
+        throw new Error(criado.erro || 'Erro ao criar retrospectiva')
+      }
 
-      const { error: erroUpdate } = await supabase
-        .from('presentes')
-        .update({ fotos_urls: urlsFotos.join(',') })
-        .eq('id', presente.id)
+      const paths = await enviarFotosParaStorage(criado.uploads)
 
-      if (erroUpdate) throw erroUpdate
+      const finalizarRes = await fetch('/api/criar-presente/fotos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          presenteId: criado.presenteId,
+          paths,
+        }),
+      })
+
+      const finalizado = await finalizarRes.json()
+
+      if (!finalizarRes.ok) {
+        throw new Error(finalizado.erro || 'Erro ao salvar fotos')
+      }
 
       window.localStorage.removeItem(STORAGE_KEY)
-      router.push(`/pagamento?id=${presente.id}`)
+      router.push(`/pagamento?id=${criado.presenteId}`)
     } catch (err) {
       console.error('Erro ao finalizar retrospectiva:', err)
-      setErro('Não foi possível finalizar agora. Confira sua conexão e tente novamente.')
+      setErro(err.message || 'Não foi possível finalizar agora. Confira sua conexão e tente novamente.')
     } finally {
       setCarregando(false)
     }
   }
 
+  function avancar() {
+    if (etapa === 'plano' && !validarPlano()) return
+    if (etapa === 'informacoes' && !validarInformacoes()) return
+    if (etapa === 'fotos' && !validarFotos()) return
+
+    if (proximaEtapa) irPara(proximaEtapa)
+  }
+
+  if (!hidratado) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-[#fff7f7] px-5 text-pink-600">
+        Carregando seu rascunho...
+      </main>
+    )
+  }
+
   return (
-    <main className="min-h-screen bg-[#fff7f7] px-5 py-10 text-[#201629]">
+    <main className="min-h-screen bg-[#fff7f7] px-4 py-8 text-[#201629] sm:px-5 sm:py-10">
       <Progresso etapaAtual={etapa} />
 
-      <div className="mx-auto max-w-4xl space-y-8">
+      <div className="mx-auto max-w-5xl space-y-6">
         {erro && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-700">
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700">
             {erro}
           </div>
         )}
 
+        {etapa === 'plano' && (
+          <>
+            <div className="mx-auto max-w-2xl text-center">
+              <p className="text-sm font-bold uppercase tracking-[0.25em] text-pink-500">Primeiro passo</p>
+              <h1 className="mt-3 text-3xl font-black sm:text-4xl">Escolha o plano da retrospectiva</h1>
+              <p className="mt-4 leading-7 text-slate-600">
+                O plano define o limite de fotos e o tempo de acesso. Você pode trocar antes de finalizar.
+              </p>
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-2">
+              {Object.entries(PLANOS).map(([key, item]) => (
+                <PlanoCard key={key} id={key} item={item} ativo={form.plano === key} onClick={() => escolherPlano(key)} />
+              ))}
+            </div>
+          </>
+        )}
+
         {etapa === 'informacoes' && (
           <>
-            <h1 className="text-center text-4xl font-black">Informações básicas</h1>
+            <div className="mx-auto max-w-2xl text-center">
+              <p className="text-sm font-bold uppercase tracking-[0.25em] text-pink-500">Detalhes principais</p>
+              <h1 className="mt-3 text-3xl font-black sm:text-4xl">Informações básicas</h1>
+            </div>
+
             <Card>
-              <label className="text-xl font-black">✉️ Digite seu email *</label>
-              <input className="mt-5 w-full rounded-xl border border-slate-200 px-5 py-4 text-lg outline-pink-300" placeholder="Digite seu email" value={form.email} onChange={(e) => atualizar('email', e.target.value)} />
+              <label className="text-lg font-black">Seu email *</label>
+              <input className="mt-4 w-full rounded-xl border border-slate-200 px-4 py-3 outline-pink-300" placeholder="voce@email.com" value={form.email} onChange={(e) => atualizar('email', e.target.value)} />
             </Card>
 
             <Card>
-              <h2 className="text-xl font-black">Selecione seu sexo *</h2>
-              <div className="mt-6 grid gap-3 md:grid-cols-3">
+              <h2 className="text-lg font-black">Selecione seu sexo *</h2>
+              <div className="mt-5 grid gap-3 sm:grid-cols-3">
                 {['masculino', 'feminino', 'outro'].map((sexo) => (
                   <Opcao key={sexo} ativo={form.sexo === sexo} onClick={() => atualizar('sexo', sexo)}>
                     {sexo[0].toUpperCase() + sexo.slice(1)}
@@ -329,8 +485,8 @@ export default function RetrospectivaFlow({ etapa }) {
             </Card>
 
             <Card>
-              <h2 className="text-xl font-black">Para quem é a retrospectiva?</h2>
-              <div className="mt-6 grid gap-3 md:grid-cols-2">
+              <h2 className="text-lg font-black">Para quem é a retrospectiva?</h2>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {['Namorada', 'Namorado', 'Esposa', 'Esposo', 'Mãe', 'Pai', 'Amigo', 'Outro'].map((tipo) => (
                   <Opcao key={tipo} ativo={form.destinatarioTipo === tipo} onClick={() => atualizar('destinatarioTipo', tipo)}>
                     {tipo}
@@ -338,94 +494,100 @@ export default function RetrospectivaFlow({ etapa }) {
                 ))}
               </div>
               <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <input className="rounded-xl border border-slate-200 px-5 py-4 outline-pink-300" placeholder="Seu nome" value={form.nomeRemetente} onChange={(e) => atualizar('nomeRemetente', e.target.value)} />
-                <input className="rounded-xl border border-slate-200 px-5 py-4 outline-pink-300" placeholder="Nome da pessoa especial" value={form.nomeDestinatario} onChange={(e) => atualizar('nomeDestinatario', e.target.value)} />
+                <input className="rounded-xl border border-slate-200 px-4 py-3 outline-pink-300" placeholder="Seu nome" value={form.nomeRemetente} onChange={(e) => atualizar('nomeRemetente', e.target.value)} />
+                <input className="rounded-xl border border-slate-200 px-4 py-3 outline-pink-300" placeholder="Nome da pessoa especial" value={form.nomeDestinatario} onChange={(e) => atualizar('nomeDestinatario', e.target.value)} />
               </div>
             </Card>
 
             <Card>
-              <h2 className="text-xl font-black">Data de início do relacionamento</h2>
-              <input className="mt-5 w-full rounded-xl border border-slate-200 px-5 py-4 outline-pink-300" type="date" value={form.dataRelacionamento} onChange={(e) => atualizar('dataRelacionamento', e.target.value)} />
+              <h2 className="text-lg font-black">Data de início do relacionamento</h2>
+              <input className="mt-4 w-full rounded-xl border border-slate-200 px-4 py-3 outline-pink-300" type="date" value={form.dataRelacionamento} onChange={(e) => atualizar('dataRelacionamento', e.target.value)} />
             </Card>
 
             <Card className="flex items-center gap-3">
-              <input type="checkbox" checked={form.ocultarSigno} onChange={(e) => atualizar('ocultarSigno', e.target.checked)} />
-              <span>Ocultar signo do zodíaco na retrospectiva</span>
+              <input id="ocultarSigno" type="checkbox" checked={form.ocultarSigno} onChange={(e) => atualizar('ocultarSigno', e.target.checked)} />
+              <label htmlFor="ocultarSigno" className="text-sm text-slate-700">Ocultar signo do zodíaco na retrospectiva</label>
             </Card>
           </>
         )}
 
         {etapa === 'fotos' && (
           <>
-            <Card className="flex gap-5">
-              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-rose-50 text-2xl">🖼️</div>
+            <Card className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h1 className="text-2xl font-black">Vamos começar a criar sua retrospectiva!</h1>
-                <p className="mt-2 text-slate-600">Adicione de 3 a 8 fotos. Cada foto vira um capítulo com título e descrição editáveis.</p>
-              </div>
-            </Card>
-
-            {form.fotos.length === 0 && (
-              <Card className="text-center">
-                <div className="mx-auto grid h-24 w-24 place-items-center rounded-full bg-rose-50 text-5xl">🖼️</div>
-                <h2 className="mt-6 text-2xl font-black">Comece adicionando uma foto</h2>
-                <p className="mx-auto mt-3 max-w-xl text-slate-600">Escolha fotos especiais e escreva uma frase para cada momento.</p>
-                <label className="mt-8 inline-block cursor-pointer rounded-xl bg-[#d85f7a] px-7 py-4 font-bold text-white">
-                  + Escolher fotos
-                  <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => adicionarFotos(e.target.files)} />
-                </label>
-              </Card>
-            )}
-
-            {form.fotos.map((foto, index) => (
-              <Card key={foto.id}>
-                <div className="flex items-center justify-between gap-4">
-                  <h2 className="text-2xl font-black">
-                    <span className="mr-3 rounded-full bg-rose-50 px-3 py-2 text-sm text-[#d85f7a]">{index + 1}</span>
-                    {foto.title || `Momento ${index + 1}`}
-                  </h2>
-                  <button type="button" onClick={() => removerFoto(foto.id)} className="text-sm font-bold text-red-500">Remover</button>
-                </div>
-                <label className="mt-6 block text-sm font-bold text-slate-600">Título ({foto.title.length}/80)</label>
-                <textarea className="mt-2 w-full rounded-xl border border-slate-200 px-5 py-4 outline-pink-300" maxLength={80} value={foto.title} onChange={(e) => atualizarFoto(foto.id, 'title', e.target.value)} />
-                <label className="mt-5 block text-sm font-bold text-slate-600">Descrição ({foto.description.length}/250)</label>
-                <textarea className="mt-2 w-full rounded-xl border border-slate-200 px-5 py-4 outline-pink-300" maxLength={250} value={foto.description} onChange={(e) => atualizarFoto(foto.id, 'description', e.target.value)} />
-                <div className="mt-5 rounded-2xl border-2 border-dashed border-slate-200 p-5 text-center">
-                  <img src={foto.preview} alt={foto.title} className="mx-auto max-h-56 rounded-xl object-cover" />
-                </div>
-              </Card>
-            ))}
-
-            {form.fotos.length > 0 && form.fotos.length < 8 && (
-              <div className="text-center">
-                <label className="inline-block cursor-pointer rounded-xl bg-white px-7 py-4 font-bold text-[#d85f7a] shadow-lg shadow-rose-100">
-                  📷 Adicionar nova foto ({form.fotos.length}/8)
-                  <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => adicionarFotos(e.target.files)} />
-                </label>
-                <p className="mx-auto mt-5 max-w-lg rounded-2xl bg-rose-50 p-5 text-sm leading-6 text-slate-600">
-                  Dica: use pelo menos 3 fotos para que a retrospectiva tenha começo, meio e final.
+                <p className="text-sm font-bold uppercase tracking-[0.2em] text-pink-500">Momentos</p>
+                <h1 className="mt-2 text-2xl font-black sm:text-3xl">Adicione suas fotos favoritas</h1>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Plano {plano.nome}: de {MIN_FOTOS} até {limiteFotos} fotos. Cada imagem vira um capítulo editável.
                 </p>
               </div>
-            )}
+              <label className={`inline-flex cursor-pointer items-center justify-center rounded-xl px-5 py-3 text-sm font-bold ${form.fotos.length >= limiteFotos ? 'pointer-events-none bg-slate-100 text-slate-400' : 'bg-[#d85f7a] text-white shadow-lg shadow-rose-100'}`}>
+                Adicionar fotos
+                <input type="file" accept={ALLOWED_TYPES.join(',')} multiple className="hidden" onChange={(e) => adicionarFotos(e.target.files)} />
+              </label>
+            </Card>
+
+            <div className="overflow-x-auto pb-3">
+              <div className="flex gap-4">
+                {form.fotos.length === 0 && (
+                  <Card className="min-w-full text-center">
+                    <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-rose-50 text-3xl text-pink-500">+</div>
+                    <h2 className="mt-5 text-2xl font-black">Comece adicionando 3 fotos</h2>
+                    <p className="mx-auto mt-3 max-w-xl text-slate-600">Escolha imagens especiais e depois ajuste título e descrição de cada momento.</p>
+                  </Card>
+                )}
+
+                {form.fotos.map((foto, index) => (
+                  <article key={foto.id} className="relative w-[82vw] max-w-[340px] shrink-0 overflow-hidden rounded-2xl border border-rose-100 bg-white shadow-lg shadow-rose-100/60">
+                    <button
+                      type="button"
+                      onClick={() => removerFoto(foto.id)}
+                      aria-label="Remover foto"
+                      className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/95 text-lg font-black text-red-500 shadow-md"
+                    >
+                      ×
+                    </button>
+                    <img src={foto.preview} alt={foto.title} className="aspect-[4/3] w-full object-cover" />
+                    <div className="space-y-4 p-5">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-black text-[#d85f7a]">{index + 1}</span>
+                        <span className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Momento</span>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-500">Título ({foto.title.length}/80)</label>
+                        <textarea className="mt-2 h-20 w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm outline-pink-300" maxLength={80} value={foto.title} onChange={(e) => atualizarFoto(foto.id, 'title', e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-500">Descrição ({foto.description.length}/250)</label>
+                        <textarea className="mt-2 h-28 w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm outline-pink-300" maxLength={250} value={foto.description} onChange={(e) => atualizarFoto(foto.id, 'description', e.target.value)} />
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+
+            <p className="rounded-2xl bg-white px-5 py-4 text-center text-sm font-semibold text-slate-600 shadow-sm">
+              {form.fotos.length}/{limiteFotos} fotos adicionadas. Mínimo para finalizar: {MIN_FOTOS}.
+            </p>
           </>
         )}
 
         {etapa === 'musica' && (
           <>
-            <Card className="flex gap-5 bg-slate-50">
-              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-white text-2xl">🎵</div>
-              <div>
-                <h1 className="text-2xl font-black">Escolha a música perfeita</h1>
-                <p className="mt-2 text-slate-600">A etapa de música já está no fluxo, mas ficará sem funcionalidade por enquanto.</p>
-              </div>
+            <Card className="bg-slate-50">
+              <p className="text-sm font-bold uppercase tracking-[0.2em] text-pink-500">Música</p>
+              <h1 className="mt-2 text-2xl font-black sm:text-3xl">Trilha sonora em breve</h1>
+              <p className="mt-3 leading-7 text-slate-600">
+                A etapa de música já está preparada no fluxo, mas ficará sem funcionalidade por enquanto para manter a entrega estável.
+              </p>
             </Card>
             <Card>
-              <h2 className="text-2xl font-black">Música de fundo</h2>
-              <label className="mt-6 block text-sm font-bold text-slate-700">Buscar música no YouTube</label>
-              <input disabled className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-5 py-4 text-slate-400" placeholder="Funcionalidade em breve" />
-              <div className="mt-6 rounded-2xl bg-blue-50 p-5 text-sm leading-6 text-blue-700">
-                <p className="font-bold">Por enquanto, você pode continuar sem música.</p>
-                <p>Assim mantemos o pagamento e a entrega do presente estáveis antes de ativar integrações externas.</p>
+              <label className="block text-sm font-bold text-slate-700">Buscar música no YouTube</label>
+              <input disabled className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-400" placeholder="Funcionalidade em breve" />
+              <div className="mt-5 rounded-2xl bg-blue-50 p-5 text-sm leading-6 text-blue-700">
+                <p className="font-bold">Você pode continuar sem música.</p>
+                <p>Quando essa integração for ativada, a base visual já estará pronta.</p>
               </div>
             </Card>
           </>
@@ -433,77 +595,47 @@ export default function RetrospectivaFlow({ etapa }) {
 
         {etapa === 'revisao' && (
           <>
-            <Card className="flex gap-5 bg-slate-50">
-              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-white text-2xl">✅</div>
-              <div>
-                <h1 className="text-2xl font-black">Revise e finalize!</h1>
-                <p className="mt-2 text-slate-600">Confira os detalhes, escolha o plano e prossiga para pagamento.</p>
-              </div>
+            <Card className="bg-slate-50">
+              <p className="text-sm font-bold uppercase tracking-[0.2em] text-pink-500">Revisão</p>
+              <h1 className="mt-2 text-2xl font-black sm:text-3xl">Confira e finalize</h1>
+              <p className="mt-3 leading-7 text-slate-600">Depois de criar a retrospectiva, você será direcionado para o pagamento.</p>
             </Card>
 
             <Card>
-              <h2 className="text-2xl font-black">Resumo das informações</h2>
-              <div className="mt-6 grid gap-6 md:grid-cols-2">
+              <h2 className="text-xl font-black">Resumo</h2>
+              <div className="mt-6 grid gap-5 md:grid-cols-2">
+                <p><span className="block text-sm text-slate-500">Plano</span><strong>{plano.nome} - R$ {plano.preco.toFixed(2).replace('.', ',')}</strong></p>
                 <p><span className="block text-sm text-slate-500">Email</span><strong>{form.email || 'Não informado'}</strong></p>
-                <p><span className="block text-sm text-slate-500">Fotos</span><strong>{form.fotos.length} foto{form.fotos.length === 1 ? '' : 's'}</strong></p>
-                <p><span className="block text-sm text-slate-500">Data de início</span><strong>{form.dataRelacionamento || 'Não informada'}</strong></p>
+                <p><span className="block text-sm text-slate-500">Casal</span><strong>{form.nomeRemetente || 'Você'} & {form.nomeDestinatario || 'Pessoa especial'}</strong></p>
+                <p><span className="block text-sm text-slate-500">Data de início</span><strong>{formatarData(form.dataRelacionamento) || 'Não informada'}</strong></p>
+                <p><span className="block text-sm text-slate-500">Fotos</span><strong>{form.fotos.length} de {limiteFotos}</strong></p>
                 <p><span className="block text-sm text-slate-500">Música</span><strong>Sem música por enquanto</strong></p>
               </div>
             </Card>
 
             <Card>
-              <h2 className="text-2xl font-black">Escolha o plano perfeito</h2>
-              <div className="mt-6 grid gap-4">
-                {Object.entries(PLANOS).map(([key, item]) => (
-                  <button
-                    type="button"
-                    key={key}
-                    onClick={() => atualizar('plano', key)}
-                    className={`rounded-2xl border p-6 text-left transition ${form.plano === key ? 'border-[#d85f7a] bg-rose-50' : 'border-slate-200 bg-white'}`}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-xl font-black">{item.nome}</p>
-                        <p className="mt-1 text-3xl font-black text-[#d85f7a]">R$ {item.preco.toFixed(2).replace('.', ',')}</p>
-                        <div className="mt-4 space-y-2 text-sm text-slate-600">
-                          <p>✓ Até {item.fotos} fotos</p>
-                          <p>✓ {item.acesso}</p>
-                          <p>✓ {item.musica}</p>
-                        </div>
-                      </div>
-                      <span className={`mt-1 h-5 w-5 rounded-full border ${form.plano === key ? 'border-[#d85f7a] bg-[#d85f7a]' : 'border-slate-300'}`} />
-                    </div>
-                  </button>
-                ))}
-              </div>
-              <p className="mt-5 rounded-2xl bg-rose-50 p-4 text-center text-sm text-[#d85f7a]">
-                💝 Plano selecionado: {plano.nome} por R$ {plano.preco.toFixed(2).replace('.', ',')}
-              </p>
-            </Card>
-
-            <Card>
-              <h2 className="text-2xl font-black">Mensagem principal</h2>
-              <textarea className="mt-5 h-32 w-full rounded-xl border border-slate-200 px-5 py-4 outline-pink-300" placeholder="Escreva uma dedicatória final..." value={form.mensagem} onChange={(e) => atualizar('mensagem', e.target.value)} />
+              <h2 className="text-xl font-black">Mensagem principal</h2>
+              <textarea className="mt-4 h-32 w-full rounded-xl border border-slate-200 px-4 py-3 outline-pink-300" placeholder="Escreva uma dedicatória final..." value={form.mensagem} onChange={(e) => atualizar('mensagem', e.target.value)} />
             </Card>
 
             <Card className="flex items-center gap-3">
-              <input type="checkbox" checked={form.termos} onChange={(e) => atualizar('termos', e.target.checked)} />
-              <span>Eu li e concordo com os termos de uso.</span>
+              <input id="termos" type="checkbox" checked={form.termos} onChange={(e) => atualizar('termos', e.target.checked)} />
+              <label htmlFor="termos" className="text-sm text-slate-700">Eu li e concordo com os termos de uso.</label>
             </Card>
 
             <Card className="text-center">
               <h2 className="text-2xl font-black">Finalizar criação</h2>
-              <p className="mx-auto mt-3 max-w-xl text-slate-600">Clique abaixo para criar sua retrospectiva e prosseguir para o pagamento.</p>
-              <button type="button" disabled={carregando} onClick={finalizar} className="mt-8 rounded-xl bg-[#d85f7a] px-8 py-4 font-bold text-white disabled:opacity-60">
-                {carregando ? 'Finalizando...' : 'Finalizar retrospectiva'}
+              <p className="mx-auto mt-3 max-w-xl text-slate-600">Vamos criar sua retrospectiva, salvar as fotos e abrir o checkout do Mercado Pago.</p>
+              <button type="button" disabled={carregando} onClick={finalizar} className="mt-7 w-full rounded-xl bg-[#d85f7a] px-8 py-4 font-bold text-white shadow-lg shadow-rose-200 disabled:opacity-60 sm:w-auto">
+                {carregando ? 'Finalizando...' : 'Finalizar e pagar'}
               </button>
             </Card>
           </>
         )}
 
-        <div className="flex items-center justify-between pb-10">
-          {etapa !== 'informacoes' ? (
-            <button type="button" onClick={() => irPara(etapas[etapas.findIndex(([key]) => key === etapa) - 1][0])} className="font-bold">
+        <div className="flex items-center justify-between gap-4 pb-10">
+          {etapaAnterior ? (
+            <button type="button" onClick={() => irPara(etapaAnterior)} className="rounded-xl bg-white px-5 py-3 font-bold text-slate-600 shadow-sm">
               Voltar
             </button>
           ) : <span />}
@@ -511,17 +643,10 @@ export default function RetrospectivaFlow({ etapa }) {
           {etapa !== 'revisao' && (
             <button
               type="button"
-              onClick={() => {
-                if (etapa === 'informacoes' && !validarInformacoes()) return
-                if (etapa === 'fotos' && form.fotos.length < 3) {
-                  setErro('Adicione pelo menos 3 fotos para continuar.')
-                  return
-                }
-                irPara(etapas[etapas.findIndex(([key]) => key === etapa) + 1][0])
-              }}
-              className="rounded-xl bg-[#d85f7a] px-8 py-4 font-bold text-white shadow-lg shadow-rose-200"
+              onClick={avancar}
+              className="rounded-xl bg-[#d85f7a] px-7 py-3 font-bold text-white shadow-lg shadow-rose-200"
             >
-              Próximo →
+              Próximo
             </button>
           )}
         </div>

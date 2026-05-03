@@ -1,5 +1,6 @@
 import { MercadoPagoConfig, MerchantOrder, Payment } from 'mercadopago'
 import { createClient } from '@supabase/supabase-js'
+import { getPlano, parseMensagemPayload } from '../../lib/presentePayload'
 
 const client = new MercadoPagoConfig({
   accessToken: process.env.MP_ACCESS_TOKEN,
@@ -32,15 +33,60 @@ function parseExternalReference(reference) {
   }
 }
 
-async function liberarPresente({ pagamentoId, presenteId, status = 'approved' }) {
-  if (pagamentoId) {
-    await supabaseAdmin
-      .from('pagamentos')
-      .update({ status })
-      .eq('id', pagamentoId)
+function valoresIguais(a, b) {
+  return Math.round(Number(a) * 100) === Math.round(Number(b) * 100)
+}
+
+async function validarPagamentoMercadoPago({ pagamentoId, presenteId, payment }) {
+  if (!pagamentoId || !presenteId) return false
+  if (payment.status !== 'approved') return false
+  if (payment.currency_id !== 'BRL') return false
+
+  const { data: pagamento, error: erroPagamento } = await supabaseAdmin
+    .from('pagamentos')
+    .select('id, presente_id, mercadopago_id')
+    .eq('id', pagamentoId)
+    .maybeSingle()
+
+  if (erroPagamento || !pagamento || Number(pagamento.presente_id) !== Number(presenteId)) {
+    console.error('Pagamento local inválido:', erroPagamento)
+    return false
   }
 
-  if (presenteId && status === 'approved') {
+  if (payment.preference_id && pagamento.mercadopago_id && payment.preference_id !== pagamento.mercadopago_id) {
+    console.error('Preference divergente no webhook:', payment.preference_id, pagamento.mercadopago_id)
+    return false
+  }
+
+  const { data: presente, error: erroPresente } = await supabaseAdmin
+    .from('presentes')
+    .select('id, mensagem')
+    .eq('id', presenteId)
+    .maybeSingle()
+
+  if (erroPresente || !presente) {
+    console.error('Presente não encontrado no webhook:', erroPresente)
+    return false
+  }
+
+  const payload = parseMensagemPayload(presente.mensagem)
+  const plano = getPlano(payload.plano)
+
+  if (!valoresIguais(payment.transaction_amount, plano.preco)) {
+    console.error('Valor divergente no webhook:', payment.transaction_amount, plano.preco)
+    return false
+  }
+
+  return true
+}
+
+async function atualizarStatus({ pagamentoId, presenteId, status, aprovado }) {
+  await supabaseAdmin
+    .from('pagamentos')
+    .update({ status })
+    .eq('id', pagamentoId)
+
+  if (aprovado) {
     await supabaseAdmin
       .from('presentes')
       .update({ pago: true })
@@ -48,56 +94,55 @@ async function liberarPresente({ pagamentoId, presenteId, status = 'approved' })
   }
 }
 
-async function liberarPorReferencia(reference, status) {
-  const ids = parseExternalReference(reference)
+async function processarPagamento(paymentId) {
+  const paymentClient = new Payment(client)
+  const payment = await paymentClient.get({ id: paymentId })
+  const status = payment.status || 'unknown'
+  const ids = parseExternalReference(payment.external_reference)
+
+  console.log('Webhook payment recebido:', {
+    paymentId,
+    status,
+    statusDetail: payment.status_detail,
+    preferenceId: payment.preference_id,
+    transactionAmount: payment.transaction_amount,
+    currency: payment.currency_id,
+  })
 
   if (!ids?.pagamentoId || !ids?.presenteId) {
-    return false
+    return { status, aprovado: false, motivo: 'referencia_invalida' }
   }
 
-  await liberarPresente({
+  const aprovado = await validarPagamentoMercadoPago({
+    pagamentoId: ids.pagamentoId,
+    presenteId: ids.presenteId,
+    payment,
+  })
+
+  await atualizarStatus({
     pagamentoId: ids.pagamentoId,
     presenteId: ids.presenteId,
     status,
+    aprovado,
   })
 
-  return true
+  return { status, aprovado }
 }
 
-async function liberarPorPreferenceId(preferenceId, status) {
-  if (!preferenceId) return false
+async function buscarPagamentoPorPreference(preferenceId) {
+  if (!preferenceId) return null
 
-  const { data: pagamento, error } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('pagamentos')
     .select('id, presente_id')
     .eq('mercadopago_id', preferenceId)
     .maybeSingle()
 
-  if (error || !pagamento) {
-    console.error('Pagamento não encontrado para preferenceId:', preferenceId, error)
-    return false
+  if (error) {
+    console.error('Erro ao buscar pagamento por preference:', error)
   }
 
-  await liberarPresente({
-    pagamentoId: pagamento.id,
-    presenteId: pagamento.presente_id,
-    status,
-  })
-
-  return true
-}
-
-async function processarPagamento(paymentId) {
-  const payment = new Payment(client)
-  const pagamento = await payment.get({ id: paymentId })
-  const status = pagamento.status || 'unknown'
-
-  await liberarPorReferencia(
-    pagamento.external_reference,
-    status
-  )
-
-  return { status }
+  return data
 }
 
 async function processarMerchantOrder(merchantOrderId) {
@@ -108,20 +153,45 @@ async function processarMerchantOrder(merchantOrderId) {
   const ultimoPagamento = pagamentoAprovado || pagamentos[pagamentos.length - 1]
 
   if (!ultimoPagamento) {
-    return { status: order.order_status || order.status || 'without_payment' }
+    return { status: order.order_status || order.status || 'without_payment', aprovado: false }
   }
 
-  const status = ultimoPagamento.status || 'unknown'
-  const liberouPorReferencia = await liberarPorReferencia(
-    order.external_reference,
-    status
-  )
+  const idsReferencia = parseExternalReference(order.external_reference)
+  const pagamentoLocal = idsReferencia?.pagamentoId
+    ? { id: idsReferencia.pagamentoId, presente_id: idsReferencia.presenteId }
+    : await buscarPagamentoPorPreference(order.preference_id)
 
-  if (!liberouPorReferencia) {
-    await liberarPorPreferenceId(order.preference_id, status)
+  if (!pagamentoLocal) {
+    return { status: ultimoPagamento.status || 'unknown', aprovado: false, motivo: 'pagamento_local_nao_encontrado' }
   }
 
-  return { status }
+  const paymentClient = new Payment(client)
+  const payment = await paymentClient.get({ id: ultimoPagamento.id })
+
+  console.log('Webhook merchant_order recebido:', {
+    merchantOrderId,
+    paymentId: ultimoPagamento.id,
+    status: payment.status || ultimoPagamento.status || 'unknown',
+    statusDetail: payment.status_detail,
+    preferenceId: order.preference_id,
+    transactionAmount: payment.transaction_amount,
+    currency: payment.currency_id,
+  })
+
+  const aprovado = await validarPagamentoMercadoPago({
+    pagamentoId: pagamentoLocal.id,
+    presenteId: pagamentoLocal.presente_id,
+    payment,
+  })
+
+  await atualizarStatus({
+    pagamentoId: pagamentoLocal.id,
+    presenteId: pagamentoLocal.presente_id,
+    status: payment.status || ultimoPagamento.status || 'unknown',
+    aprovado,
+  })
+
+  return { status: payment.status || ultimoPagamento.status || 'unknown', aprovado }
 }
 
 export async function POST(request) {
