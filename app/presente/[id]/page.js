@@ -1,6 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
 import { notFound, redirect } from 'next/navigation'
 import RetrospectivaView from '../../components/RetrospectivaView'
+import { supabaseAdmin } from '../../lib/supabaseAdmin'
 import PaymentReturnCleaner from './PaymentReturnCleaner'
 
 export default async function Presente({ params }) {
@@ -11,12 +11,7 @@ export default async function Presente({ params }) {
     notFound()
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  )
-
-  const { data: presente, error } = await supabase
+  const { data: presente, error } = await supabaseAdmin
     .from('presentes')
     .select('*')
     .eq('id', id)

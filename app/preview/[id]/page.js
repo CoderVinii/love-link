@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, use } from 'react'
-import { supabase } from '../../lib/supabase'
 import RetrospectivaView from '../../components/RetrospectivaView'
 
 export default function Preview({ params }) {
@@ -11,14 +10,17 @@ export default function Preview({ params }) {
 
   useEffect(() => {
     async function buscarPresente() {
-      const { data } = await supabase
-        .from('presentes')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle()
+      try {
+        const res = await fetch(`/api/presente/${id}`, { cache: 'no-store' })
+        const data = await res.json()
 
-      setPresente(data)
-      setCarregando(false)
+        setPresente(res.ok ? data.presente : null)
+      } catch (error) {
+        console.error('Erro ao buscar preview:', error)
+        setPresente(null)
+      } finally {
+        setCarregando(false)
+      }
     }
 
     buscarPresente()

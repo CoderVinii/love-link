@@ -5,7 +5,6 @@ export const dynamic = 'force-dynamic'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { supabase } from '../lib/supabase'
 import { getPlano, parseMensagemPayload } from '../lib/presentePayload'
 
 function PagamentoContent() {
@@ -26,11 +25,21 @@ function PagamentoContent() {
         return
       }
 
-      const { data, error } = await supabase
-        .from('presentes')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle()
+      let data = null
+      let error = null
+
+      try {
+        const res = await fetch(`/api/presente/${id}`, { cache: 'no-store' })
+        const body = await res.json()
+
+        if (!res.ok) {
+          throw new Error(body.erro || 'Nao foi possivel carregar a retrospectiva.')
+        }
+
+        data = body.presente
+      } catch (err) {
+        error = err
+      }
 
       if (error) {
         setErro('Não foi possível carregar a retrospectiva.')
