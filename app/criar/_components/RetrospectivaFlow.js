@@ -7,6 +7,8 @@ import { supabase } from '../../lib/supabase'
 import { buildMensagemPayload, formatarData, getPlano, PLANOS } from '../../lib/presentePayload'
 
 const STORAGE_KEY = 'lovelink-retrospectiva'
+const PHOTO_DB_NAME = 'lovelink-retrospectiva-fotos'
+const PHOTO_STORE_NAME = 'fotos'
 const MIN_FOTOS = 3
 const MAX_FILE_SIZE = 8 * 1024 * 1024
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
@@ -43,6 +45,13 @@ function normalizarEstado(valor) {
   }
 }
 
+function serializarEstado(valor) {
+  return {
+    ...normalizarEstado(valor),
+    fotos: (valor?.fotos || []).map(({ preview, ...foto }) => foto),
+  }
+}
+
 function lerEstado() {
   if (typeof window === 'undefined') return estadoInicial
 
@@ -52,6 +61,57 @@ function lerEstado() {
   } catch {
     return estadoInicial
   }
+}
+
+function abrirBancoFotos() {
+  if (typeof window === 'undefined' || !window.indexedDB) {
+    return Promise.resolve(null)
+  }
+
+  return new Promise((resolve, reject) => {
+    const request = window.indexedDB.open(PHOTO_DB_NAME, 1)
+
+    request.onupgradeneeded = () => {
+      const db = request.result
+      if (!db.objectStoreNames.contains(PHOTO_STORE_NAME)) {
+        db.createObjectStore(PHOTO_STORE_NAME)
+      }
+    }
+
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+}
+
+async function usarBancoFotos(mode, callback) {
+  const db = await abrirBancoFotos()
+  if (!db) return null
+
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(PHOTO_STORE_NAME, mode)
+    const store = transaction.objectStore(PHOTO_STORE_NAME)
+    const request = callback(store)
+
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+    transaction.oncomplete = () => db.close()
+    transaction.onerror = () => {
+      db.close()
+      reject(transaction.error)
+    }
+  })
+}
+
+function salvarPreviewFoto(id, preview) {
+  return usarBancoFotos('readwrite', (store) => store.put(preview, id))
+}
+
+function lerPreviewFoto(id) {
+  return usarBancoFotos('readonly', (store) => store.get(id))
+}
+
+function apagarPreviewFoto(id) {
+  return usarBancoFotos('readwrite', (store) => store.delete(id))
 }
 
 function fileToDataUrl(file) {
@@ -64,6 +124,10 @@ function fileToDataUrl(file) {
 }
 
 function dataUrlToBlob(dataUrl) {
+  if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.includes(',')) {
+    throw new Error('Uma das fotos nao foi carregada corretamente. Remova e adicione a imagem novamente.')
+  }
+
   const [header, base64] = dataUrl.split(',')
   const mime = header.match(/:(.*?);/)?.[1] || 'image/jpeg'
   const binary = atob(base64)
@@ -186,15 +250,47 @@ export default function RetrospectivaFlow({ etapa }) {
   const [erro, setErro] = useState('')
 
   useEffect(() => {
-    const salvo = lerEstado()
-    const planoInicial = PLANOS[planoQuery] ? planoQuery : salvo.plano
-    setForm({ ...salvo, plano: planoInicial })
-    setHidratado(true)
+    let ativo = true
+
+    async function carregarEstado() {
+      const salvo = lerEstado()
+      const fotosComPreview = await Promise.all(
+        salvo.fotos.map(async (foto) => ({
+          ...foto,
+          preview: foto.preview || await lerPreviewFoto(foto.id) || '',
+        }))
+      )
+      const planoInicial = PLANOS[planoQuery] ? planoQuery : salvo.plano
+
+      if (ativo) {
+        setForm({ ...salvo, fotos: fotosComPreview.filter((foto) => foto.preview), plano: planoInicial })
+        setHidratado(true)
+      }
+    }
+
+    carregarEstado().catch(() => {
+      const salvo = lerEstado()
+      const planoInicial = PLANOS[planoQuery] ? planoQuery : salvo.plano
+      if (ativo) {
+        setForm({ ...salvo, fotos: [], plano: planoInicial })
+        setErro('Nao foi possivel restaurar as fotos salvas. Adicione as imagens novamente para continuar.')
+        setHidratado(true)
+      }
+    })
+
+    return () => {
+      ativo = false
+    }
   }, [planoQuery])
 
   useEffect(() => {
     if (hidratado) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(form))
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(serializarEstado(form)))
+      } catch (err) {
+        console.error('Erro ao salvar rascunho:', err)
+        setErro('Nao foi possivel salvar o rascunho neste navegador. Voce ainda pode continuar nesta tela.')
+      }
     }
   }, [form, hidratado])
 
@@ -285,26 +381,37 @@ export default function RetrospectivaFlow({ etapa }) {
       setErro('')
     }
 
-    const novasFotos = await Promise.all(
-      selecionadas.map(async (file, index) => {
-        const ordem = form.fotos.length + index
-        return {
-          id: `${Date.now()}-${file.name}-${index}`,
-          name: file.name,
-          type: file.type,
-          size: file.size,
-          preview: await fileToDataUrl(file),
-          title: gerarTitulo(ordem),
-          description: gerarDescricao(ordem),
-        }
-      })
-    )
+    try {
+      const novasFotos = await Promise.all(
+        selecionadas.map(async (file, index) => {
+          const ordem = form.fotos.length + index
+          const id = `${Date.now()}-${file.name}-${index}`
+          const preview = await fileToDataUrl(file)
 
-    setForm((atual) => ({ ...atual, fotos: [...atual.fotos, ...novasFotos] }))
+          await salvarPreviewFoto(id, preview)
+
+          return {
+            id,
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            preview,
+            title: gerarTitulo(ordem),
+            description: gerarDescricao(ordem),
+          }
+        })
+      )
+
+      setForm((atual) => ({ ...atual, fotos: [...atual.fotos, ...novasFotos] }))
+    } catch (err) {
+      console.error('Erro ao adicionar fotos:', err)
+      setErro('Nao foi possivel carregar as fotos. Tente imagens menores ou em JPG, PNG ou WEBP.')
+    }
   }
 
   function removerFoto(id) {
     setErro('')
+    apagarPreviewFoto(id).catch((err) => console.error('Erro ao apagar foto local:', err))
     setForm((atual) => ({ ...atual, fotos: atual.fotos.filter((foto) => foto.id !== id) }))
   }
 
@@ -323,6 +430,11 @@ export default function RetrospectivaFlow({ etapa }) {
     for (let i = 0; i < uploadTargets.length; i++) {
       const target = uploadTargets[i]
       const foto = form.fotos[i]
+
+      if (!target || !foto) {
+        throw new Error('Nao foi possivel preparar todas as fotos para envio. Tente novamente.')
+      }
+
       const blob = dataUrlToBlob(foto.preview)
 
       const { error } = await supabase.storage
@@ -406,6 +518,7 @@ export default function RetrospectivaFlow({ etapa }) {
         throw new Error(finalizado.erro || 'Erro ao salvar fotos')
       }
 
+      await Promise.all(form.fotos.map((foto) => apagarPreviewFoto(foto.id).catch(() => null)))
       window.localStorage.removeItem(STORAGE_KEY)
       router.push(`/pagamento?id=${criado.presenteId}`)
     } catch (err) {
@@ -523,7 +636,16 @@ export default function RetrospectivaFlow({ etapa }) {
               </div>
               <label className={`inline-flex cursor-pointer items-center justify-center rounded-xl px-5 py-3 text-sm font-bold ${form.fotos.length >= limiteFotos ? 'pointer-events-none bg-slate-100 text-slate-400' : 'bg-[#d85f7a] text-white shadow-lg shadow-rose-100'}`}>
                 Adicionar fotos
-                <input type="file" accept={ALLOWED_TYPES.join(',')} multiple className="hidden" onChange={(e) => adicionarFotos(e.target.files)} />
+                <input
+                  type="file"
+                  accept={ALLOWED_TYPES.join(',')}
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    adicionarFotos(e.target.files)
+                    e.target.value = ''
+                  }}
+                />
               </label>
             </Card>
 
