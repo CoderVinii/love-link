@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { notFound, redirect } from 'next/navigation'
 import RetrospectivaView from '../../components/RetrospectivaView'
+import PaymentReturnCleaner from './PaymentReturnCleaner'
 
 export default async function Presente({ params }) {
   const { id: rawId } = await params
@@ -33,5 +34,10 @@ export default async function Presente({ params }) {
     redirect(`/pagamento?id=${id}`)
   }
 
-  return <RetrospectivaView presente={presente} />
+  return (
+    <>
+      <PaymentReturnCleaner presenteId={id} />
+      <RetrospectivaView presente={presente} />
+    </>
+  )
 }
