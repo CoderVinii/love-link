@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { randomBytes } from 'node:crypto'
 import { getPlano, PLANOS } from '../../lib/presentePayload'
 
 const MIN_FOTOS = 3
@@ -21,6 +22,25 @@ function limparNomeArquivo(nome = 'foto.jpg') {
     .slice(0, 50) || 'foto'
 
   return `${base}.${extensao}`
+}
+
+function limparSlugParte(valor = '') {
+  return String(valor)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 18)
+}
+
+function gerarPublicSlug(body) {
+  const remetente = limparSlugParte(body.nomeRemetente)
+  const destinatario = limparSlugParte(body.nomeDestinatario)
+  const prefixo = [remetente, destinatario].filter(Boolean).join('-').slice(0, 24)
+  const aleatorio = randomBytes(5).toString('hex')
+
+  return `${prefixo || 'lv'}-${aleatorio}`
 }
 
 function validarBody(body) {
@@ -65,19 +85,30 @@ export async function POST(request) {
       return Response.json({ erro: erroValidacao }, { status: 400 })
     }
 
-    const { data: presente, error: erroInsert } = await supabaseAdmin
-      .from('presentes')
-      .insert({
-        nome_remetente: String(body.nomeRemetente).trim(),
-        nome_destinatario: String(body.nomeDestinatario).trim(),
-        data_relacionamento: body.dataRelacionamento,
-        mensagem: body.mensagem,
-        musica_url: '',
-        fotos_urls: '',
-        pago: false,
-      })
-      .select('id')
-      .single()
+    let presente = null
+    let erroInsert = null
+
+    for (let tentativa = 0; tentativa < 3; tentativa++) {
+      const resultado = await supabaseAdmin
+        .from('presentes')
+        .insert({
+          public_slug: gerarPublicSlug(body),
+          nome_remetente: String(body.nomeRemetente).trim(),
+          nome_destinatario: String(body.nomeDestinatario).trim(),
+          data_relacionamento: body.dataRelacionamento,
+          mensagem: body.mensagem,
+          musica_url: '',
+          fotos_urls: '',
+          pago: false,
+        })
+        .select('id, public_slug')
+        .single()
+
+      presente = resultado.data
+      erroInsert = resultado.error
+
+      if (!erroInsert || erroInsert.code !== '23505') break
+    }
 
     if (erroInsert) {
       console.error('Erro ao criar presente:', erroInsert)
@@ -106,6 +137,7 @@ export async function POST(request) {
 
     return Response.json({
       presenteId: presente.id,
+      publicSlug: presente.public_slug,
       uploads,
     })
   } catch (erro) {

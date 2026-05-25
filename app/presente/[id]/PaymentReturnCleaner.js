@@ -14,7 +14,7 @@ const MERCADO_PAGO_PARAMS = [
   'preference_id',
 ]
 
-export default function PaymentReturnCleaner({ presenteId }) {
+export default function PaymentReturnCleaner({ presenteSlug }) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -23,8 +23,8 @@ export default function PaymentReturnCleaner({ presenteId }) {
 
     if (!hasMercadoPagoParams) return
 
-    router.replace(`/presente/${presenteId}`, { scroll: false })
-  }, [presenteId, router, searchParams])
+    router.replace(`/presente/${presenteSlug}`, { scroll: false })
+  }, [presenteSlug, router, searchParams])
 
   return null
 }

@@ -49,7 +49,7 @@ export async function POST(request) {
 
     const { data: presente, error: erroPresente } = await supabase
       .from('presentes')
-      .select('id, nome_remetente, nome_destinatario, mensagem, fotos_urls, pago')
+      .select('id, public_slug, nome_remetente, nome_destinatario, mensagem, fotos_urls, pago')
       .eq('id', presenteId)
       .maybeSingle()
 
@@ -107,7 +107,7 @@ export async function POST(request) {
           installments: 1,
         },
         back_urls: {
-          success: `${baseUrl}/presente/${presenteId}`,
+          success: `${baseUrl}/presente/${presente.public_slug || presenteId}`,
           failure: `${baseUrl}/pagamento?id=${presenteId}&erro=1`,
           pending: `${baseUrl}/pagamento?id=${presenteId}&pendente=1`,
         },
