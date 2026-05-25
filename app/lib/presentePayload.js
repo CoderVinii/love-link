@@ -3,7 +3,7 @@ export const PLANOS = {
     nome: 'Básico',
     preco: 25.9,
     fotos: 5,
-    acesso: '1 ano de acesso',
+    acesso: '1 dia de acesso',
     musica: 'Sem música',
   },
   premium: {

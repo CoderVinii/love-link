@@ -248,6 +248,8 @@ export default function RetrospectivaFlow({ etapa }) {
   const [hidratado, setHidratado] = useState(false)
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState('')
+  const [arrastandoFotos, setArrastandoFotos] = useState(false)
+  const [termosDestacados, setTermosDestacados] = useState(false)
 
   useEffect(() => {
     let ativo = true
@@ -308,6 +310,11 @@ export default function RetrospectivaFlow({ etapa }) {
 
   function atualizar(campo, valor) {
     setForm((atual) => ({ ...atual, [campo]: valor }))
+
+    if (campo === 'termos' && valor) {
+      setTermosDestacados(false)
+      setErro('')
+    }
   }
 
   function escolherPlano(planoEscolhido) {
@@ -361,6 +368,7 @@ export default function RetrospectivaFlow({ etapa }) {
     const espacoDisponivel = limiteFotos - form.fotos.length
 
     if (!validarPlano()) return
+    if (arquivos.length === 0) return
 
     if (espacoDisponivel <= 0) {
       setErro(`Você já atingiu o limite de ${limiteFotos} fotos do plano ${plano.nome}.`)
@@ -456,7 +464,8 @@ export default function RetrospectivaFlow({ etapa }) {
 
     if (!validarPlano() || !validarInformacoes() || !validarFotos()) return
     if (!form.termos) {
-      setErro('Confirme os termos para finalizar.')
+      setTermosDestacados(true)
+      setErro('Você precisa aceitar os termos para continuar.')
       return
     }
 
@@ -535,6 +544,27 @@ export default function RetrospectivaFlow({ etapa }) {
     if (etapa === 'fotos' && !validarFotos()) return
 
     if (proximaEtapa) irPara(proximaEtapa)
+  }
+
+  function bloquearDrop(event) {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
+  async function soltarFotos(event) {
+    bloquearDrop(event)
+    setArrastandoFotos(false)
+
+    const arquivos = Array.from(event.dataTransfer?.files || [])
+
+    if (arquivos.length === 0) return
+
+    if (arquivos.some((file) => !ALLOWED_TYPES.includes(file.type))) {
+      setErro('Arraste apenas imagens JPG, PNG ou WEBP.')
+      return
+    }
+
+    await adicionarFotos(arquivos)
   }
 
   if (!hidratado) {
@@ -637,6 +667,7 @@ export default function RetrospectivaFlow({ etapa }) {
               <label className={`inline-flex cursor-pointer items-center justify-center rounded-xl px-5 py-3 text-sm font-bold ${form.fotos.length >= limiteFotos ? 'pointer-events-none bg-slate-100 text-slate-400' : 'bg-[#d85f7a] text-white shadow-lg shadow-rose-100'}`}>
                 Adicionar fotos
                 <input
+                  id="fotos-upload-input"
                   type="file"
                   accept={ALLOWED_TYPES.join(',')}
                   multiple
@@ -652,11 +683,27 @@ export default function RetrospectivaFlow({ etapa }) {
             <div className="overflow-x-auto pb-3">
               <div className="flex gap-4">
                 {form.fotos.length === 0 && (
-                  <Card className="min-w-full text-center">
+                  <label
+                    htmlFor="fotos-upload-input"
+                    onDragEnter={(event) => {
+                      bloquearDrop(event)
+                      setArrastandoFotos(true)
+                    }}
+                    onDragOver={bloquearDrop}
+                    onDragLeave={(event) => {
+                      bloquearDrop(event)
+                      setArrastandoFotos(false)
+                    }}
+                    onDrop={soltarFotos}
+                    className={`block min-w-full cursor-pointer rounded-2xl border bg-white p-5 text-center shadow-lg shadow-rose-100/50 transition sm:p-7 ${arrastandoFotos ? 'border-pink-400 bg-rose-50' : 'border-rose-100 hover:border-pink-200 hover:bg-rose-50/50'}`}
+                  >
                     <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-rose-50 text-3xl text-pink-500">+</div>
                     <h2 className="mt-5 text-2xl font-black">Comece adicionando 3 fotos</h2>
                     <p className="mx-auto mt-3 max-w-xl text-slate-600">Escolha imagens especiais e depois ajuste título e descrição de cada momento.</p>
-                  </Card>
+                    <p className="mt-4 text-xs font-bold uppercase tracking-[0.18em] text-pink-500">
+                      Clique ou arraste imagens aqui
+                    </p>
+                  </label>
                 )}
 
                 {form.fotos.map((foto, index) => (
@@ -727,6 +774,7 @@ export default function RetrospectivaFlow({ etapa }) {
               <h2 className="text-xl font-black">Resumo</h2>
               <div className="mt-6 grid gap-5 md:grid-cols-2">
                 <p><span className="block text-sm text-slate-500">Plano</span><strong>{plano.nome} - R$ {plano.preco.toFixed(2).replace('.', ',')}</strong></p>
+                <p><span className="block text-sm text-slate-500">Acesso</span><strong>{plano.acesso}</strong></p>
                 <p><span className="block text-sm text-slate-500">Email</span><strong>{form.email || 'Não informado'}</strong></p>
                 <p><span className="block text-sm text-slate-500">Casal</span><strong>{form.nomeRemetente || 'Você'} & {form.nomeDestinatario || 'Pessoa especial'}</strong></p>
                 <p><span className="block text-sm text-slate-500">Data de início</span><strong>{formatarData(form.dataRelacionamento) || 'Não informada'}</strong></p>
@@ -740,15 +788,31 @@ export default function RetrospectivaFlow({ etapa }) {
               <textarea className="mt-4 h-32 w-full rounded-xl border border-slate-200 px-4 py-3 outline-pink-300" placeholder="Escreva uma dedicatória final..." value={form.mensagem} onChange={(e) => atualizar('mensagem', e.target.value)} />
             </Card>
 
-            <Card className="flex items-center gap-3">
+            <Card className={`flex items-start gap-3 ${termosDestacados ? 'border-red-300 bg-red-50 shadow-red-100/60' : ''}`}>
               <input id="termos" type="checkbox" checked={form.termos} onChange={(e) => atualizar('termos', e.target.checked)} />
-              <label htmlFor="termos" className="text-sm text-slate-700">Eu li e concordo com os termos de uso.</label>
+              <div>
+                <label htmlFor="termos" className="text-sm text-slate-700">
+                  Eu li e concordo com os{' '}
+                  <Link href="/termos-de-uso" target="_blank" className="font-bold text-pink-600 underline underline-offset-4">
+                    termos de uso
+                  </Link>.
+                </label>
+                {termosDestacados && (
+                  <p className="mt-2 text-sm font-semibold text-red-600">Você precisa aceitar os termos para continuar.</p>
+                )}
+              </div>
             </Card>
 
             <Card className="text-center">
               <h2 className="text-2xl font-black">Finalizar criação</h2>
               <p className="mx-auto mt-3 max-w-xl text-slate-600">Vamos criar sua retrospectiva, salvar as fotos e abrir o checkout do Mercado Pago.</p>
-              <button type="button" disabled={carregando} onClick={finalizar} className="mt-7 w-full rounded-xl bg-[#d85f7a] px-8 py-4 font-bold text-white shadow-lg shadow-rose-200 disabled:opacity-60 sm:w-auto">
+              <button
+                type="button"
+                disabled={carregando}
+                aria-disabled={!form.termos}
+                onClick={finalizar}
+                className={`mt-7 w-full rounded-xl px-8 py-4 font-bold text-white shadow-lg transition sm:w-auto ${form.termos ? 'bg-[#d85f7a] shadow-rose-200 hover:bg-pink-600' : 'cursor-not-allowed bg-slate-300 shadow-slate-100'}`}
+              >
                 {carregando ? 'Finalizando...' : 'Finalizar e pagar'}
               </button>
             </Card>
