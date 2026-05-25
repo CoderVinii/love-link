@@ -1,4 +1,5 @@
 import "./globals.css";
+import CookieConsent from "./components/CookieConsent";
 
 export const metadata = {
   title: "Lovelink",
@@ -8,7 +9,10 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="pt-BR" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <CookieConsent />
+      </body>
     </html>
   );
 }

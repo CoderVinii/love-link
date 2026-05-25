@@ -3,13 +3,14 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { calcularTempoJuntos, formatarData, getPlano, parseMensagemPayload } from '../lib/presentePayload'
+import FallingHearts from './FallingHearts'
 
 function Watermark({ preview }) {
   if (!preview) return null
 
   return (
     <div className="pointer-events-none fixed inset-0 z-20 opacity-20">
-      <div className="grid h-full grid-cols-3 gap-10 overflow-hidden text-3xl font-black text-white sm:grid-cols-4">
+      <div className="grid h-full grid-cols-3 gap-10 overflow-hidden text-3xl font-black text-pink-900 sm:grid-cols-4">
         {Array.from({ length: 28 }).map((_, index) => (
           <span key={index} className="-rotate-45">Prévia</span>
         ))}
@@ -18,83 +19,44 @@ function Watermark({ preview }) {
   )
 }
 
-function FloatingHearts() {
-  return (
-    <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
-      {Array.from({ length: 18 }).map((_, index) => (
-        <span
-          key={index}
-          className="lovelink-floating-heart"
-          style={{
-            left: `${(index * 17) % 100}%`,
-            top: `${8 + ((index * 23) % 78)}%`,
-            animationDelay: `${index * -1.7}s`,
-            animationDuration: `${14 + (index % 6) * 2}s`,
-            opacity: 0.08 + (index % 5) * 0.018,
-            '--heart-scale': 0.7 + (index % 5) * 0.18,
-          }}
-        >
-          ♥
-        </span>
-      ))}
-    </div>
-  )
-}
-
 function Numero({ valor, label }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-4 shadow-lg shadow-black/20 backdrop-blur">
-      <p className="font-serif text-3xl text-white sm:text-4xl">{valor}</p>
-      <p className="mt-2 text-[11px] uppercase tracking-[0.22em] text-slate-500">{label}</p>
+    <div className="rounded-2xl border border-rose-100 bg-white p-4 text-center shadow-sm">
+      <p className="font-serif text-3xl text-[#251629] sm:text-4xl">{valor}</p>
+      <p className="mt-2 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{label}</p>
     </div>
   )
 }
 
-function Carousel({ momentos, activeIndex, setActiveIndex }) {
-  if (momentos.length === 0) return null
-
-  const ativo = momentos[activeIndex] || momentos[0]
+function IntroOverlay({ aberto, onOpen, remetente }) {
+  if (aberto) return null
 
   return (
-    <section className="relative z-10 mx-auto max-w-6xl px-5 py-16 md:py-20">
-      <div className="grid items-center gap-8 rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-5 shadow-2xl shadow-black/40 backdrop-blur md:grid-cols-[0.92fr_1.08fr] md:p-8">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.35em] text-pink-300">Galeria automática</p>
-          <h2 className="mt-4 font-serif text-4xl leading-tight sm:text-5xl">
-            {ativo.titulo}
-          </h2>
-          <p className="mt-5 text-base leading-8 text-slate-300 sm:text-lg">
-            {ativo.descricao}
-          </p>
-          <div className="mt-7 flex flex-wrap gap-2">
-            {momentos.map((momento, index) => (
-              <button
-                key={`${momento.url}-${index}`}
-                type="button"
-                onClick={() => setActiveIndex(index)}
-                aria-label={`Ver momento ${index + 1}`}
-                className={`h-2.5 rounded-full transition-all ${activeIndex === index ? 'w-10 bg-pink-300' : 'w-2.5 bg-white/25 hover:bg-white/45'}`}
-              />
-            ))}
-          </div>
+    <div className="fixed inset-0 z-40 grid place-items-center bg-rose-950/20 px-5 backdrop-blur-md">
+      <div className="w-full max-w-md rounded-[2rem] border border-rose-100 bg-white p-8 text-center shadow-2xl shadow-rose-200">
+        <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-gradient-to-br from-pink-400 to-rose-500 text-4xl text-white shadow-xl shadow-rose-200">
+          ♥
         </div>
-
-        <div className="relative mx-auto w-full max-w-[520px]">
-          <div className="absolute -inset-4 rounded-[2rem] bg-pink-500/10 blur-2xl" />
-          <img
-            src={ativo.url}
-            alt={ativo.titulo}
-            className="relative aspect-[4/5] max-h-[620px] w-full rounded-[1.5rem] object-cover shadow-2xl shadow-black/70"
-          />
-        </div>
+        <p className="mt-6 text-sm font-black uppercase tracking-[0.25em] text-pink-500">Presente especial</p>
+        <h1 className="mt-3 text-3xl font-black leading-tight text-[#251629]">Você recebeu um presente</h1>
+        <p className="mt-4 leading-7 text-slate-600">
+          {remetente} preparou uma retrospectiva romântica só para você.
+        </p>
+        <button
+          type="button"
+          onClick={onOpen}
+          className="lovelink-gradient-button mt-7 w-full rounded-full px-6 py-4 font-black text-white transition hover:-translate-y-0.5"
+        >
+          Abrir presente
+        </button>
       </div>
-    </section>
+    </div>
   )
 }
 
 export default function RetrospectivaView({ presente, preview = false }) {
   const [agora, setAgora] = useState(0)
-  const [activeIndex, setActiveIndex] = useState(0)
+  const [aberto, setAberto] = useState(preview)
   const payload = useMemo(() => parseMensagemPayload(presente.mensagem), [presente.mensagem])
   const fotos = useMemo(() => (
     presente.fotos_urls
@@ -119,99 +81,86 @@ export default function RetrospectivaView({ presente, preview = false }) {
     return () => window.clearInterval(timer)
   }, [])
 
-  useEffect(() => {
-    if (momentos.length <= 1) return undefined
-
-    const timer = window.setInterval(() => {
-      setActiveIndex((index) => (index + 1) % momentos.length)
-    }, 4500)
-
-    return () => window.clearInterval(timer)
-  }, [momentos.length])
-
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#07070d] text-white">
-      <FloatingHearts />
+    <main className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_15%_8%,rgba(244,114,182,0.2),transparent_30%),linear-gradient(180deg,#fff7f8_0%,#ffe8ee_45%,#fff8f8_100%)] text-[#251629]">
+      <FallingHearts count={18} />
       <Watermark preview={preview} />
-
-      <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_20%_15%,rgba(216,95,122,0.14),transparent_28%),radial-gradient(circle_at_80%_35%,rgba(244,114,182,0.09),transparent_26%),linear-gradient(180deg,#090911_0%,#05050a_52%,#09070e_100%)]" />
+      {!preview && <IntroOverlay aberto={aberto} remetente={presente.nome_remetente} onOpen={() => setAberto(true)} />}
 
       {preview && (
-        <div className="sticky top-0 z-30 bg-pink-600 px-4 py-3 text-center text-sm font-bold">
+        <div className="sticky top-0 z-30 bg-pink-600 px-4 py-3 text-center text-sm font-bold text-white">
           Você está vendo uma prévia. A marca d&apos;água sai após o pagamento.
           <Link href={`/pagamento?id=${presente.id}`} className="ml-2 underline">Liberar agora</Link>
         </div>
       )}
 
-      <section className="relative z-10 mx-auto flex min-h-[88vh] max-w-5xl flex-col items-center justify-center px-5 py-20 text-center">
-        <p className="mb-4 text-xs font-bold uppercase tracking-[0.45em] text-pink-300">Nossa história</p>
-        <h1 className="font-serif text-5xl leading-tight sm:text-6xl md:text-7xl">
-          {presente.nome_remetente} & {presente.nome_destinatario}
-        </h1>
-        <p className="mt-6 max-w-2xl text-lg italic leading-8 text-slate-300">
-          Uma jornada de amor e momentos inesquecíveis.
-        </p>
+      <div className={`relative z-10 mx-auto max-w-5xl px-5 py-10 transition ${!preview && !aberto ? 'scale-[0.98] opacity-40' : 'scale-100 opacity-100'}`}>
+        <section className="rounded-[2rem] border border-rose-100 bg-white/90 p-5 shadow-2xl shadow-rose-200/70 backdrop-blur sm:p-8 md:p-10">
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="text-xs font-black uppercase tracking-[0.35em] text-pink-500">Nossa história</p>
+            <h1 className="mt-4 text-4xl font-black leading-tight sm:text-5xl md:text-6xl">
+              {presente.nome_remetente}
+              <span className="block text-pink-600">&</span>
+              {presente.nome_destinatario}
+            </h1>
+            <p className="mt-5 text-sm font-semibold text-slate-500">
+              Desde {formatarData(presente.data_relacionamento) || 'uma data especial'}
+            </p>
+          </div>
 
-        <div className="my-12 grid w-full max-w-3xl grid-cols-2 gap-3 border-y border-white/10 py-8 md:grid-cols-4">
-          <Numero valor={tempo.dias} label="Dias" />
-          <Numero valor={tempo.horas} label="Horas" />
-          <Numero valor={tempo.minutos} label="Minutos" />
-          <Numero valor={tempo.segundos} label="Segundos" />
-        </div>
+          <div className="mx-auto mt-8 grid max-w-3xl grid-cols-2 gap-3 md:grid-cols-4">
+            <Numero valor={tempo.dias} label="Dias" />
+            <Numero valor={tempo.horas} label="Horas" />
+            <Numero valor={tempo.minutos} label="Minutos" />
+            <Numero valor={tempo.segundos} label="Segundos" />
+          </div>
 
-        <p className="rounded-full bg-white/10 px-5 py-3 text-sm text-slate-300 backdrop-blur">
-          Começamos em {formatarData(presente.data_relacionamento) || 'uma data especial'}
-        </p>
-      </section>
+          <div className="mx-auto mt-8 max-w-3xl rounded-[1.5rem] bg-rose-50 p-6 sm:p-8">
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-pink-500">Mensagem</p>
+            <p className="mt-4 text-xl italic leading-9 text-[#251629] sm:text-2xl">
+              “{payload.texto || presente.mensagem || 'Eu te amo em cada detalhe da nossa história.'}”
+            </p>
+            <p className="mt-6 font-black text-pink-600">- {presente.nome_remetente}</p>
+          </div>
+        </section>
 
-      <section className="relative z-10 mx-auto max-w-4xl px-5 py-12 text-center md:py-16">
-        <p className="text-xs font-bold uppercase tracking-[0.4em] text-pink-300">Mensagem</p>
-        <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.055] p-6 shadow-2xl shadow-black/40 backdrop-blur sm:p-9">
-          <p className="text-xl italic leading-9 text-slate-100 sm:text-2xl">
-            “{payload.texto || presente.mensagem || 'Eu te amo em cada detalhe da nossa história.'}”
+        <section className="py-10 md:py-14">
+          <div className="mb-7 text-center">
+            <p className="text-xs font-black uppercase tracking-[0.35em] text-pink-500">Momentos</p>
+            <h2 className="mt-3 text-3xl font-black sm:text-4xl">Capítulos que viraram presente</h2>
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {momentos.map((momento, index) => (
+              <article key={`${momento.url}-${index}`} className="overflow-hidden rounded-[1.5rem] border border-rose-100 bg-white shadow-xl shadow-rose-100/70">
+                <img
+                  src={momento.url}
+                  alt={momento.titulo}
+                  className="aspect-[4/5] w-full object-cover"
+                />
+                <div className="p-5">
+                  <p className="text-[11px] font-black uppercase tracking-[0.25em] text-pink-500">Capítulo {index + 1}</p>
+                  <h3 className="mt-3 text-2xl font-black leading-tight">{momento.titulo}</h3>
+                  <p className="mt-3 text-sm leading-7 text-slate-600">{momento.descricao}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="mx-auto mb-8 max-w-3xl rounded-[2rem] border border-rose-100 bg-white/90 p-7 text-center shadow-xl shadow-rose-100 sm:p-9">
+          <p className="text-xs font-black uppercase tracking-[0.32em] text-pink-500">Nossa história continua</p>
+          <h2 className="mt-4 text-3xl font-black sm:text-4xl">E isso é só o começo...</h2>
+          <p className="mx-auto mt-4 max-w-xl leading-7 text-slate-600">
+            Cada dia ao seu lado é uma nova oportunidade de escrever mais um capítulo juntos.
           </p>
-          <p className="mt-8 font-bold text-pink-300">- {presente.nome_remetente}</p>
-        </div>
-      </section>
-
-      <Carousel momentos={momentos} activeIndex={activeIndex} setActiveIndex={setActiveIndex} />
-
-      <section className="relative z-10 mx-auto max-w-6xl px-5 py-14 md:py-16">
-        <div className="mb-8 text-center">
-          <p className="text-xs font-bold uppercase tracking-[0.35em] text-pink-300">Capítulos</p>
-          <h2 className="mt-3 font-serif text-4xl sm:text-5xl">Momentos que contam tudo</h2>
-        </div>
-
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {momentos.map((momento, index) => (
-            <article key={`${momento.url}-${index}`} className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.045] shadow-xl shadow-black/30 backdrop-blur">
-              <img
-                src={momento.url}
-                alt={momento.titulo}
-                className="aspect-[4/3] w-full object-cover"
-              />
-              <div className="p-5">
-                <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-pink-300">Capítulo {index + 1}</p>
-                <h3 className="mt-3 font-serif text-3xl leading-tight">{momento.titulo}</h3>
-                <p className="mt-4 text-sm leading-7 text-slate-300">{momento.descricao}</p>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="relative z-10 mx-auto flex min-h-[70vh] max-w-4xl flex-col items-center justify-center px-5 py-20 text-center">
-        <p className="text-xs font-bold uppercase tracking-[0.4em] text-pink-300">Nossa história continua</p>
-        <h2 className="mt-6 font-serif text-5xl leading-tight sm:text-6xl md:text-7xl">E isso é só o começo...</h2>
-        <p className="mt-8 max-w-2xl text-lg leading-8 text-slate-300">
-          Cada dia ao seu lado é uma nova oportunidade de escrever mais um capítulo juntos.
-        </p>
-        <div className="mt-12 rounded-2xl border border-white/10 bg-white/[0.055] p-7 shadow-2xl shadow-black/30 backdrop-blur">
-          <p className="text-xs font-bold uppercase tracking-[0.3em] text-slate-500">Plano escolhido</p>
-          <p className="mt-3 text-3xl font-black text-pink-300">{plano.nome}</p>
-          <p className="mt-2 text-slate-400">{plano.acesso}</p>
-        </div>
-      </section>
+          <div className="mx-auto mt-7 w-fit rounded-2xl bg-rose-50 px-6 py-4">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Plano escolhido</p>
+            <p className="mt-2 text-xl font-black text-pink-600">{plano.nome}</p>
+            <p className="mt-1 text-sm text-slate-500">{plano.acesso}</p>
+          </div>
+        </section>
+      </div>
     </main>
   )
 }

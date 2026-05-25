@@ -175,17 +175,17 @@ function Progresso({ etapaAtual }) {
   const progresso = ((atualIndex + 1) / etapas.length) * 100
 
   return (
-    <div className="mx-auto mb-8 max-w-5xl">
+    <div className="mx-auto mb-8 max-w-5xl rounded-[1.75rem] border border-rose-100 bg-white/80 p-5 shadow-xl shadow-rose-100/60 backdrop-blur">
       <Link href="/" className="mx-auto mb-6 flex w-fit items-center gap-2 text-2xl font-black text-pink-600">
         <span aria-hidden="true">♡</span>
         <span>Lovelink</span>
       </Link>
-      <div className="h-2 overflow-hidden rounded-full bg-rose-100">
-        <div className="h-full rounded-full bg-[#d85f7a] transition-all" style={{ width: `${progresso}%` }} />
+      <div className="h-2 overflow-hidden rounded-full bg-rose-100 shadow-inner">
+        <div className="h-full rounded-full bg-gradient-to-r from-pink-500 to-rose-500 transition-all" style={{ width: `${progresso}%` }} />
       </div>
-      <div className="mt-4 grid grid-cols-5 gap-1 text-center text-[11px] font-bold text-slate-400 sm:text-xs">
+      <div className="mt-4 grid grid-cols-5 gap-1 text-center text-[10px] font-black uppercase tracking-wide text-slate-400 sm:text-xs">
         {etapas.map(([key, label], index) => (
-          <span key={key} className={index <= atualIndex ? 'text-pink-600' : ''}>{label}</span>
+          <span key={key} className={index <= atualIndex ? 'text-pink-600' : ''}>{index < atualIndex ? '✓ ' : ''}{label}</span>
         ))}
       </div>
     </div>
@@ -194,7 +194,7 @@ function Progresso({ etapaAtual }) {
 
 function Card({ children, className = '' }) {
   return (
-    <section className={`rounded-2xl border border-rose-100 bg-white p-5 shadow-lg shadow-rose-100/50 sm:p-7 ${className}`}>
+    <section className={`rounded-[1.65rem] border border-rose-100 bg-white/90 p-5 shadow-xl shadow-rose-100/60 backdrop-blur sm:p-7 ${className}`}>
       {children}
     </section>
   )
@@ -205,7 +205,7 @@ function Opcao({ ativo, children, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-xl border px-4 py-3 text-sm font-semibold transition sm:text-base ${ativo ? 'border-[#d85f7a] bg-rose-50 text-[#d85f7a]' : 'border-slate-200 bg-white hover:border-rose-200'}`}
+      className={`rounded-2xl border px-4 py-3 text-sm font-bold transition sm:text-base ${ativo ? 'border-[#d85f7a] bg-rose-50 text-[#d85f7a] shadow-sm' : 'border-slate-200 bg-white hover:-translate-y-0.5 hover:border-rose-200 hover:shadow-md'}`}
     >
       {children}
     </button>
@@ -217,7 +217,7 @@ function PlanoCard({ id, item, ativo, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`flex h-full flex-col rounded-2xl border p-6 text-left transition ${ativo ? 'border-[#d85f7a] bg-rose-50 shadow-lg shadow-rose-100' : 'border-rose-100 bg-white hover:-translate-y-1 hover:border-rose-200 hover:shadow-lg hover:shadow-rose-100'}`}
+      className={`flex h-full flex-col rounded-[1.75rem] border p-6 text-left transition ${ativo ? 'border-[#d85f7a] bg-rose-50 shadow-2xl shadow-rose-100' : 'border-rose-100 bg-white hover:-translate-y-1 hover:border-rose-200 hover:shadow-xl hover:shadow-rose-100'}`}
     >
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -233,7 +233,7 @@ function PlanoCard({ id, item, ativo, onClick }) {
         <p>{item.acesso}</p>
         <p>{item.musica}</p>
       </div>
-      <span className="mt-6 inline-flex w-fit rounded-full bg-white px-4 py-2 text-sm font-bold text-pink-600">
+      <span className="mt-6 inline-flex w-fit rounded-full bg-white px-4 py-2 text-sm font-black text-pink-600 shadow-sm">
         {id === 'premium' ? 'Mais completo' : 'Essencial'}
       </span>
     </button>
@@ -248,6 +248,7 @@ export default function RetrospectivaFlow({ etapa }) {
   const [hidratado, setHidratado] = useState(false)
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState('')
+  const [avisoIa, setAvisoIa] = useState('')
   const [arrastandoFotos, setArrastandoFotos] = useState(false)
   const [termosDestacados, setTermosDestacados] = useState(false)
 
@@ -329,6 +330,11 @@ export default function RetrospectivaFlow({ etapa }) {
   function irPara(destino) {
     setErro('')
     router.push(`/criar/${destino}`)
+  }
+
+  function mostrarAvisoIa() {
+    setAvisoIa('Em breve você poderá gerar ideias com IA.')
+    window.setTimeout(() => setAvisoIa(''), 2800)
   }
 
   function validarPlano() {
@@ -576,13 +582,19 @@ export default function RetrospectivaFlow({ etapa }) {
   }
 
   return (
-    <main className="min-h-screen bg-[#fff7f7] px-4 py-8 text-[#201629] sm:px-5 sm:py-10">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_15%_10%,rgba(244,114,182,0.18),transparent_28%),radial-gradient(circle_at_90%_18%,rgba(251,113,133,0.12),transparent_30%),linear-gradient(180deg,#fff7f8_0%,#fff1f4_55%,#fff8f8_100%)] px-4 py-8 text-[#201629] sm:px-5 sm:py-10">
       <Progresso etapaAtual={etapa} />
 
       <div className="mx-auto max-w-5xl space-y-6">
         {erro && (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700">
             {erro}
+          </div>
+        )}
+
+        {avisoIa && (
+          <div className="rounded-2xl border border-pink-200 bg-white px-5 py-4 text-sm font-bold text-pink-600 shadow-lg shadow-rose-100">
+            {avisoIa}
           </div>
         )}
 
@@ -651,6 +663,23 @@ export default function RetrospectivaFlow({ etapa }) {
               <input id="ocultarSigno" type="checkbox" checked={form.ocultarSigno} onChange={(e) => atualizar('ocultarSigno', e.target.checked)} />
               <label htmlFor="ocultarSigno" className="text-sm text-slate-700">Ocultar signo do zodíaco na retrospectiva</label>
             </Card>
+
+            <Card className="flex flex-col gap-4 bg-gradient-to-r from-rose-50 to-white sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-pink-500">Ajuda criativa</p>
+                <h2 className="mt-2 text-xl font-black">Sem ideias para a mensagem?</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Em breve o Lovelink vai sugerir textos românticos a partir da história de vocês.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={mostrarAvisoIa}
+                className="rounded-full border border-pink-200 bg-white px-5 py-3 text-sm font-black text-pink-600 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              >
+                Sem ideias? Criar com IA
+              </button>
+            </Card>
           </>
         )}
 
@@ -662,6 +691,9 @@ export default function RetrospectivaFlow({ etapa }) {
                 <h1 className="mt-2 text-2xl font-black sm:text-3xl">Adicione suas fotos favoritas</h1>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
                   Plano {plano.nome}: de {MIN_FOTOS} até {limiteFotos} fotos. Cada imagem vira um capítulo editável.
+                </p>
+                <p className="mt-2 text-xs font-semibold text-pink-500">
+                  Dica: use fotos verticais ou quadradas para um resultado mais bonito.
                 </p>
               </div>
               <label className={`inline-flex cursor-pointer items-center justify-center rounded-xl px-5 py-3 text-sm font-bold ${form.fotos.length >= limiteFotos ? 'pointer-events-none bg-slate-100 text-slate-400' : 'bg-[#d85f7a] text-white shadow-lg shadow-rose-100'}`}>
@@ -703,6 +735,7 @@ export default function RetrospectivaFlow({ etapa }) {
                     <p className="mt-4 text-xs font-bold uppercase tracking-[0.18em] text-pink-500">
                       Clique ou arraste imagens aqui
                     </p>
+                    <p className="mt-2 text-xs text-slate-500">JPG, PNG ou WEBP. Até 8 MB por foto.</p>
                   </label>
                 )}
 
@@ -788,6 +821,17 @@ export default function RetrospectivaFlow({ etapa }) {
               <textarea className="mt-4 h-32 w-full rounded-xl border border-slate-200 px-4 py-3 outline-pink-300" placeholder="Escreva uma dedicatória final..." value={form.mensagem} onChange={(e) => atualizar('mensagem', e.target.value)} />
             </Card>
 
+            <Card className="bg-gradient-to-r from-rose-50 to-white">
+              <p className="text-sm font-black uppercase tracking-[0.22em] text-pink-500">Link exclusivo</p>
+              <h2 className="mt-2 text-xl font-black">Personalizar link em breve</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Nesta versão, o Lovelink gera um link seguro automaticamente. Em breve você poderá escolher um final personalizado.
+              </p>
+              <div className="mt-5 rounded-2xl border border-dashed border-rose-200 bg-white px-4 py-3 text-sm font-bold text-slate-400">
+                love-link-six.vercel.app/presente/seu-final
+              </div>
+            </Card>
+
             <Card className={`flex items-start gap-3 ${termosDestacados ? 'border-red-300 bg-red-50 shadow-red-100/60' : ''}`}>
               <input id="termos" type="checkbox" checked={form.termos} onChange={(e) => atualizar('termos', e.target.checked)} />
               <div>
@@ -813,7 +857,7 @@ export default function RetrospectivaFlow({ etapa }) {
                 onClick={finalizar}
                 className={`mt-7 w-full rounded-xl px-8 py-4 font-bold text-white shadow-lg transition sm:w-auto ${form.termos ? 'bg-[#d85f7a] shadow-rose-200 hover:bg-pink-600' : 'cursor-not-allowed bg-slate-300 shadow-slate-100'}`}
               >
-                {carregando ? 'Finalizando...' : 'Finalizar e pagar'}
+                {carregando ? 'Preparando checkout...' : 'Finalizar e pagar'}
               </button>
             </Card>
           </>

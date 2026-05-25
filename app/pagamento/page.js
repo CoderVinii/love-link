@@ -52,10 +52,13 @@ function PagamentoContent() {
     carregarPresente()
   }, [id])
 
-  const plano = useMemo(() => {
-    const payload = parseMensagemPayload(presente?.mensagem)
-    return getPlano(payload.plano)
-  }, [presente])
+  const payload = useMemo(() => parseMensagemPayload(presente?.mensagem), [presente])
+  const plano = useMemo(() => getPlano(payload.plano), [payload.plano])
+  const fotosCount = useMemo(() => (
+    presente?.fotos_urls
+      ? presente.fotos_urls.split(',').map((url) => url.trim()).filter(Boolean).length
+      : 0
+  ), [presente?.fotos_urls])
 
   async function handlePagamento() {
     if (carregando) return
@@ -110,7 +113,7 @@ function PagamentoContent() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#fff7f7] px-5 py-10 text-[#201629]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(216,95,122,0.16),transparent_26%),radial-gradient(circle_at_85%_28%,rgba(244,114,182,0.13),transparent_28%),linear-gradient(180deg,#fff7f7_0%,#fff1f3_100%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(236,72,153,0.16),transparent_26%),radial-gradient(circle_at_85%_28%,rgba(251,113,133,0.13),transparent_28%),linear-gradient(180deg,#fff7f8_0%,#fff1f4_100%)]" />
 
       <div className="relative z-10 mx-auto flex min-h-[calc(100vh-5rem)] max-w-6xl items-center">
         <div className="grid w-full items-center gap-10 lg:grid-cols-[0.95fr_1.05fr]">
@@ -134,6 +137,14 @@ function PagamentoContent() {
                   : 'Pague pelo Mercado Pago para remover a marca d’água e liberar o link final da retrospectiva.'}
             </p>
 
+            <div className="mt-8 grid gap-3 text-left sm:grid-cols-2">
+              {['Link exclusivo após aprovação', 'Prévia disponível antes de pagar', 'Pagamento seguro Mercado Pago', 'Liberação automática'].map((item) => (
+                <div key={item} className="rounded-2xl border border-rose-100 bg-white/80 px-4 py-3 text-sm font-bold text-slate-700 shadow-sm">
+                  <span className="mr-2 text-pink-500">✓</span>{item}
+                </div>
+              ))}
+            </div>
+
             {(erro || erroRetorno) && (
               <div className="mt-6 rounded-2xl border border-red-200 bg-white px-5 py-4 text-sm font-semibold text-red-700 shadow-sm">
                 {erro || 'O checkout não confirmou o pagamento. Tente novamente ou escolha outro meio.'}
@@ -141,8 +152,8 @@ function PagamentoContent() {
             )}
           </section>
 
-          <section className="rounded-[1.75rem] border border-rose-100 bg-white p-5 shadow-2xl shadow-rose-100/80 sm:p-8">
-            <div className="rounded-2xl bg-[#201629] p-6 text-center text-white">
+          <section className="rounded-[2rem] border border-rose-100 bg-white/90 p-5 shadow-2xl shadow-rose-100/80 backdrop-blur sm:p-8">
+            <div className="rounded-[1.5rem] bg-gradient-to-br from-[#201629] to-[#3b1830] p-6 text-center text-white">
               <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-white text-3xl">
                 <span aria-hidden="true">{estado === 'erro' ? '!' : 'R$'}</span>
               </div>
@@ -150,7 +161,7 @@ function PagamentoContent() {
                 {estado === 'erro' ? 'Tentar novamente' : 'Pagamento da retrospectiva'}
               </h2>
               <p className="mt-3 text-sm leading-6 text-slate-300">
-                Retrospectiva #{id} · Plano {plano.nome}
+                {presente.nome_remetente} para {presente.nome_destinatario}
               </p>
             </div>
 
@@ -160,6 +171,21 @@ function PagamentoContent() {
                 R$ {plano.preco.toFixed(2).replace('.', ',')}
               </p>
               <p className="mt-2 text-sm text-slate-500">{plano.acesso}</p>
+            </div>
+
+            <div className="mb-5 grid gap-3 rounded-2xl border border-rose-100 bg-white p-5 text-sm">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-slate-500">Plano</span>
+                <strong>{plano.nome}</strong>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-slate-500">Fotos</span>
+                <strong>{fotosCount} foto(s)</strong>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-slate-500">Presente</span>
+                <strong>#{id}</strong>
+              </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
@@ -172,11 +198,11 @@ function PagamentoContent() {
                 disabled={carregando}
                 className="rounded-xl bg-[#009ee3] px-6 py-4 font-black text-white shadow-lg disabled:opacity-60"
               >
-                {carregando ? 'Abrindo...' : 'Pagar agora'}
+                {carregando ? 'Abrindo Mercado Pago...' : 'Pagar agora'}
               </button>
             </div>
 
-            <p className="mt-5 text-center text-sm text-slate-500">Pagamento seguro via Mercado Pago</p>
+            <p className="mt-5 text-center text-sm text-slate-500">Se o pagamento for aprovado, o presente é liberado automaticamente.</p>
           </section>
         </div>
       </div>
