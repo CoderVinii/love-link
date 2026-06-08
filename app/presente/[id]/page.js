@@ -1,5 +1,4 @@
 import { notFound, redirect } from 'next/navigation'
-import GiftQrCode from '../../components/GiftQrCode'
 import RetrospectivaView from '../../components/RetrospectivaView'
 import { supabaseAdmin } from '../../lib/supabaseAdmin'
 import PaymentReturnCleaner from './PaymentReturnCleaner'
@@ -58,15 +57,10 @@ export default async function Presente({ params }) {
     redirect(`/presente/${presente.public_slug}`)
   }
 
-  const publicGiftUrl = `${getPublicBaseUrl()}/presente/${presente.public_slug || presente.id}`
-
   return (
     <>
       <PaymentReturnCleaner presenteSlug={presente.public_slug || String(presente.id)} />
       <RetrospectivaView presente={presente} />
-      <div className="bg-[linear-gradient(180deg,#fff8f8_0%,#ffe8ee_100%)] px-5 pb-12 pt-2">
-        <GiftQrCode url={publicGiftUrl} />
-      </div>
     </>
   )
 }

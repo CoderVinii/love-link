@@ -6,6 +6,13 @@ import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { getPlano, parseMensagemPayload } from '../lib/presentePayload'
+import GiftQrCode from '../components/GiftQrCode'
+
+function getPublicBaseUrl() {
+  const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : ''
+
+  return (process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || vercelUrl || 'http://localhost:3000').replace(/\/$/, '')
+}
 
 function PagamentoContent() {
   const params = useSearchParams()
@@ -59,6 +66,11 @@ function PagamentoContent() {
       ? presente.fotos_urls.split(',').map((url) => url.trim()).filter(Boolean).length
       : 0
   ), [presente?.fotos_urls])
+  const publicGiftUrl = useMemo(() => {
+    if (!presente?.public_slug && !presente?.id) return ''
+
+    return `${getPublicBaseUrl()}/presente/${presente.public_slug || presente.id}`
+  }, [presente?.id, presente?.public_slug])
 
   async function handlePagamento() {
     if (carregando) return
@@ -109,7 +121,7 @@ function PagamentoContent() {
     )
   }
 
-  const estado = erroRetorno ? 'erro' : pendente ? 'pendente' : 'normal'
+  const estado = erroRetorno ? 'erro' : pendente ? 'pendente' : presente?.pago ? 'pago' : 'normal'
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#fff7f7] px-5 py-10 text-[#201629]">
@@ -203,6 +215,12 @@ function PagamentoContent() {
             </div>
 
             <p className="mt-5 text-center text-sm text-slate-500">Se o pagamento for aprovado, o presente é liberado automaticamente.</p>
+
+            {presente?.pago && publicGiftUrl && (
+              <div className="mt-6">
+                <GiftQrCode url={publicGiftUrl} />
+              </div>
+            )}
           </section>
         </div>
       </div>
