@@ -103,9 +103,6 @@ export async function POST(request) {
           },
         ],
         payer: emailComprador ? { email: emailComprador } : undefined,
-        payment_methods: {
-          installments: 1,
-        },
         back_urls: {
           success: `${baseUrl}/presente/${presente.public_slug || presenteId}`,
           failure: `${baseUrl}/pagamento?id=${presenteId}&erro=1`,
