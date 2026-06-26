@@ -196,7 +196,7 @@ function PagamentoContent() {
               </div>
               <div className="flex items-center justify-between gap-4">
                 <span className="text-slate-500">Presente</span>
-                <strong>#{id}</strong>
+                <strong>Lovelink</strong>
               </div>
             </div>
 

@@ -13,7 +13,7 @@ const MIN_FOTOS = 3
 const MAX_FILE_SIZE = 8 * 1024 * 1024
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
-const etapas = [
+const etapasBase = [
   ['plano', 'Plano'],
   ['informacoes', 'Informações'],
   ['fotos', 'Fotos'],
@@ -170,9 +170,12 @@ function gerarDescricao(index) {
   return descricoes[index] || 'Um momento especial da nossa história.'
 }
 
-function Progresso({ etapaAtual }) {
-  const atualIndex = Math.max(0, etapas.findIndex(([key]) => key === etapaAtual))
-  const progresso = ((atualIndex + 1) / etapas.length) * 100
+function Progresso({ etapaAtual, plano }) {
+  const etapasVisiveis = plano === 'basico'
+    ? etapasBase.filter(([key]) => key !== 'musica')
+    : etapasBase
+  const atualIndex = Math.max(0, etapasVisiveis.findIndex(([key]) => key === etapaAtual))
+  const progresso = ((atualIndex + 1) / etapasVisiveis.length) * 100
 
   return (
     <div className="mx-auto mb-8 max-w-5xl rounded-[1.75rem] border border-rose-100 bg-white/80 p-5 shadow-xl shadow-rose-100/60 backdrop-blur">
@@ -183,8 +186,8 @@ function Progresso({ etapaAtual }) {
       <div className="h-2 overflow-hidden rounded-full bg-rose-100 shadow-inner">
         <div className="h-full rounded-full bg-gradient-to-r from-pink-500 to-rose-500 transition-all" style={{ width: `${progresso}%` }} />
       </div>
-      <div className="mt-4 grid grid-cols-5 gap-1 text-center text-[10px] font-black uppercase tracking-wide text-slate-400 sm:text-xs">
-        {etapas.map(([key, label], index) => (
+      <div className={`mt-4 grid gap-1 text-center text-[10px] font-black uppercase tracking-wide text-slate-400 sm:text-xs ${etapasVisiveis.length === 4 ? 'grid-cols-4' : 'grid-cols-5'}`}>
+        {etapasVisiveis.map(([key, label], index) => (
           <span key={key} className={index <= atualIndex ? 'text-pink-600' : ''}>{index < atualIndex ? '✓ ' : ''}{label}</span>
         ))}
       </div>
@@ -248,7 +251,6 @@ export default function RetrospectivaFlow({ etapa }) {
   const [hidratado, setHidratado] = useState(false)
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState('')
-  const [avisoIa, setAvisoIa] = useState('')
   const [arrastandoFotos, setArrastandoFotos] = useState(false)
   const [termosDestacados, setTermosDestacados] = useState(false)
 
@@ -303,11 +305,22 @@ export default function RetrospectivaFlow({ etapa }) {
     }
   }, [etapa, form.plano, hidratado, router])
 
+  useEffect(() => {
+    if (hidratado && form.plano === 'basico' && etapa === 'musica') {
+      router.replace('/criar/revisao')
+    }
+  }, [etapa, form.plano, hidratado, router])
+
   const plano = useMemo(() => getPlano(form.plano || 'premium'), [form.plano])
   const limiteFotos = plano.fotos
-  const etapaIndex = etapas.findIndex(([key]) => key === etapa)
-  const etapaAnterior = etapaIndex > 0 ? etapas[etapaIndex - 1][0] : null
-  const proximaEtapa = etapaIndex >= 0 && etapaIndex < etapas.length - 1 ? etapas[etapaIndex + 1][0] : null
+  const etapasVisiveis = useMemo(() => (
+    form.plano === 'basico'
+      ? etapasBase.filter(([key]) => key !== 'musica')
+      : etapasBase
+  ), [form.plano])
+  const etapaIndex = etapasVisiveis.findIndex(([key]) => key === etapa)
+  const etapaAnterior = etapaIndex > 0 ? etapasVisiveis[etapaIndex - 1][0] : null
+  const proximaEtapa = etapaIndex >= 0 && etapaIndex < etapasVisiveis.length - 1 ? etapasVisiveis[etapaIndex + 1][0] : null
 
   function atualizar(campo, valor) {
     setForm((atual) => ({ ...atual, [campo]: valor }))
@@ -330,11 +343,6 @@ export default function RetrospectivaFlow({ etapa }) {
   function irPara(destino) {
     setErro('')
     router.push(`/criar/${destino}`)
-  }
-
-  function mostrarAvisoIa() {
-    setAvisoIa('Em breve você poderá gerar ideias com IA.')
-    window.setTimeout(() => setAvisoIa(''), 2800)
   }
 
   function validarPlano() {
@@ -583,18 +591,12 @@ export default function RetrospectivaFlow({ etapa }) {
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_15%_10%,rgba(244,114,182,0.18),transparent_28%),radial-gradient(circle_at_90%_18%,rgba(251,113,133,0.12),transparent_30%),linear-gradient(180deg,#fff7f8_0%,#fff1f4_55%,#fff8f8_100%)] px-4 py-8 text-[#201629] sm:px-5 sm:py-10">
-      <Progresso etapaAtual={etapa} />
+      <Progresso etapaAtual={etapa} plano={form.plano} />
 
       <div className="mx-auto max-w-5xl space-y-6">
         {erro && (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700">
             {erro}
-          </div>
-        )}
-
-        {avisoIa && (
-          <div className="rounded-2xl border border-pink-200 bg-white px-5 py-4 text-sm font-bold text-pink-600 shadow-lg shadow-rose-100">
-            {avisoIa}
           </div>
         )}
 
@@ -674,10 +676,11 @@ export default function RetrospectivaFlow({ etapa }) {
               </div>
               <button
                 type="button"
-                onClick={mostrarAvisoIa}
-                className="rounded-full border border-pink-200 bg-white px-5 py-3 text-sm font-black text-pink-600 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                disabled
+                aria-disabled="true"
+                className="rounded-full border border-pink-200 bg-white px-5 py-3 text-sm font-black text-pink-400 shadow-sm opacity-70"
               >
-                Sem ideias? Criar com IA
+                Sem ideias? Em breve
               </button>
             </Card>
           </>
@@ -775,7 +778,7 @@ export default function RetrospectivaFlow({ etapa }) {
           </>
         )}
 
-        {etapa === 'musica' && (
+        {etapa === 'musica' && form.plano !== 'basico' && (
           <>
             <Card className="bg-slate-50">
               <p className="text-sm font-bold uppercase tracking-[0.2em] text-pink-500">Música</p>
@@ -832,9 +835,9 @@ export default function RetrospectivaFlow({ etapa }) {
               </div>
             </Card>
 
-            <Card className={`flex items-start gap-3 ${termosDestacados ? 'border-red-300 bg-red-50 shadow-red-100/60' : ''}`}>
-              <input id="termos" type="checkbox" checked={form.termos} onChange={(e) => atualizar('termos', e.target.checked)} />
-              <div>
+            <Card className={`flex items-center gap-3 ${termosDestacados ? 'border-red-300 bg-red-50 shadow-red-100/60' : ''}`}>
+              <input id="termos" type="checkbox" className="mt-0.5 shrink-0" checked={form.termos} onChange={(e) => atualizar('termos', e.target.checked)} />
+              <div className="flex-1">
                 <label htmlFor="termos" className="text-sm text-slate-700">
                   Eu li e concordo com os{' '}
                   <Link href="/termos-de-uso" target="_blank" className="font-bold text-pink-600 underline underline-offset-4">

@@ -1,7 +1,7 @@
 export const PLANOS = {
   basico: {
     nome: 'Básico',
-    preco: 25.9,
+    preco: 15.9,
     fotos: 5,
     acesso: '1 dia de acesso',
     musica: 'Sem música',
@@ -93,4 +93,32 @@ export function calcularTempoJuntos(data, agora = Date.now()) {
     minutos: Math.floor((totalSeconds % 3600) / 60),
     segundos: totalSeconds % 60,
   }
+}
+
+export function calcularSigno(data) {
+  if (!data) return ''
+
+  const date = new Date(`${data}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return ''
+
+  const mes = date.getMonth() + 1
+  const dia = date.getDate()
+
+  const tabela = [
+    ['Capricórnio', dia >= 22 || mes === 1],
+    ['Aquário', (mes === 1 && dia >= 20) || (mes === 2 && dia <= 18)],
+    ['Peixes', (mes === 2 && dia >= 19) || (mes === 3 && dia <= 20)],
+    ['Áries', (mes === 3 && dia >= 21) || (mes === 4 && dia <= 19)],
+    ['Touro', (mes === 4 && dia >= 20) || (mes === 5 && dia <= 20)],
+    ['Gêmeos', (mes === 5 && dia >= 21) || (mes === 6 && dia <= 20)],
+    ['Câncer', (mes === 6 && dia >= 21) || (mes === 7 && dia <= 22)],
+    ['Leão', (mes === 7 && dia >= 23) || (mes === 8 && dia <= 22)],
+    ['Virgem', (mes === 8 && dia >= 23) || (mes === 9 && dia <= 22)],
+    ['Libra', (mes === 9 && dia >= 23) || (mes === 10 && dia <= 22)],
+    ['Escorpião', (mes === 10 && dia >= 23) || (mes === 11 && dia <= 21)],
+    ['Sagitário', (mes === 11 && dia >= 22) || (mes === 12 && dia <= 21)],
+  ]
+
+  const encontrado = tabela.find(([, condicao]) => condicao)
+  return encontrado ? encontrado[0] : 'Capricórnio'
 }

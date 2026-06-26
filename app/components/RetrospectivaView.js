@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { calcularTempoJuntos, formatarData, getPlano, parseMensagemPayload } from '../lib/presentePayload'
+import { calcularSigno, calcularTempoJuntos, formatarData, getPlano, parseMensagemPayload } from '../lib/presentePayload'
 import FallingHearts from './FallingHearts'
 
 function Watermark({ preview }) {
@@ -69,6 +69,10 @@ export default function RetrospectivaView({ presente, preview = false }) {
     titulo: payload.momentos[index]?.titulo || `Momento ${index + 1}`,
     descricao: payload.momentos[index]?.descricao || 'Uma memória especial da nossa história.',
   })), [fotos, payload.momentos])
+  const signo = useMemo(() => {
+    if (payload.extras?.ocultarSigno) return ''
+    return calcularSigno(presente.data_relacionamento)
+  }, [payload.extras?.ocultarSigno, presente.data_relacionamento])
 
   const tempo = calcularTempoJuntos(presente.data_relacionamento, agora)
   const plano = getPlano(payload.plano)
@@ -114,6 +118,16 @@ export default function RetrospectivaView({ presente, preview = false }) {
             <Numero valor={tempo.minutos} label="Minutos" />
             <Numero valor={tempo.segundos} label="Segundos" />
           </div>
+
+          {!preview && signo && (
+            <div className="mx-auto mt-6 max-w-3xl rounded-[1.5rem] border border-pink-100 bg-white/90 p-5 text-center shadow-sm">
+              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-pink-500">Signo do começo</p>
+              <p className="mt-2 text-xl font-black text-[#251629]">{signo}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Este é o signo associado à data de início do relacionamento.
+              </p>
+            </div>
+          )}
 
           <div className="mx-auto mt-8 max-w-3xl rounded-[1.5rem] bg-rose-50 p-6 sm:p-8">
             <p className="text-xs font-black uppercase tracking-[0.28em] text-pink-500">Mensagem</p>
